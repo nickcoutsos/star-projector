@@ -1,91 +1,41 @@
 var scene, renderer, camera;
 var object;
 var controls;
-// var d12 = new THREE.IcosahedronGeometry(10, 1);
+
 var d12 = new THREE.DodecahedronGeometry(10);
-var pointMesh = new THREE.Geometry();
-// var stars = getStars();
+// var d12 = new THREE.BoxGeometry(10,10,10);
+var geometryMeta = getGeometryMetadata(d12);
+console.log(geometryMeta);
 
-// getGeometryMap(d12);
+let starsAsVertices = bsc
+	.map(({sra0, sdec0}) => intersectPolygons(rayFromAngles(sra0, sdec0), geometryMeta.polygons))
+	.filter(intersection => intersection)
+	.map(({point}) => point);
 
-pointMesh.vertices = new Array(bsc.length).join(',').split(',').map(p => new THREE.Vector3(0,0,0));
-// console.log(pointMesh.vertices);
+let pointMesh = Object.assign(new THREE.Geometry(), {vertices: starsAsVertices});
 
-var groupedFaces = d12.faces.reduce((groups, face) => {
-	let group = groups.find(g => g.normal.angleTo(face.normal) < 0.01);
-  if (!group) groups.push(group = {normal: face.normal, faces:[], plane: new THREE.Plane().setFromCoplanarPoints(...['a','b','c'].map(p => d12.vertices[face[p]]))});
-  group.faces.push(face);
-  return groups;
-}, []);
+var edgeMesh = new THREE.Geometry();
+edgeMesh.vertices = [].concat(
+	...geometryMeta.edges.map(edge => edge.id.split('-').map(n => d12.vertices[parseInt(n)]))
+);
 
+let edges = geometryMeta.edges.map(edge => edge.id.split('-').map(n => d12.vertices[parseInt(n)]));
+var hueStep = Math.max(Math.round(360 / edges.length), 40),
+	lightStep = 360/hueStep;
 
-function pointsFromFace(face, geometry) {
-	return [
-  	geometry.vertices[face.a],
-    geometry.vertices[face.b],
-    geometry.vertices[face.c]
-  ];
-}
-
-
-function projectPoint(ray, geometry) {
-	let point, tri;
-	return groupedFaces.find(group => {
-  	point = ray.intersectPlane(group.plane);
-    tri = point && group.faces.find(face =>
-      	new THREE.Triangle(...pointsFromFace(face, geometry))
-        	.containsPoint(point)
-      );
-
-      return tri && point;
-  }) && point;
-}
-
-//let t = 0;
-//let interval = setInterval(function() {
-//	t += 1;
-//  addPoint(t);
-//  if (t === 360) clearInterval(interval);
-//}, 50)
+var edgeMeshes = edges.map(([a, b], i, edges) =>
+	new THREE.LineSegments(
+		Object.assign(new THREE.Geometry(), {vertices: [ a, b ]}),
+		new THREE.LineBasicMaterial({
+			color: new THREE.Color(`hsl(${i * hueStep % 360}, 75%, ${30 + Math.floor(i/lightStep)*20}%)`),
+			linewidth: 3.5
+		})
+	)
+);
 
 
-const DEG2RAD = Math.PI/180;
-
-function addPoint(t) {
-	let asc = bsc[t].sra0,
-  	dec = bsc[t].sdec0;
-
-  let ray = new THREE.Ray(
-  	new THREE.Vector3(0,0,0),
-    /*
-    new THREE.Vector3(
-    	Math.cos(r),
-      Math.sin(r*5),
-			Math.sin(r)
-    ).normalize()
-    */
-    // new THREE.Vector3(
-    // 	Math.cos(rA) * Math.cos(rD),
-    //   Math.sin(rA),
-    //   Math.cos(rA) * Math.sin(rD)
-    // ).normalize()
-		new THREE.Vector3(
-    	Math.cos(asc) * Math.sin(dec),
-      Math.cos(dec) * (dec / Math.abs(dec) || 1),
-      Math.sin(asc) * Math.sin(dec)
-    ).normalize()
-  );
-  pointMesh.vertices[t] = projectPoint(ray, d12);
-	if (!pointMesh.vertices[t]) {
-		console.log('holy shit no intersection for', t, ray, pointMesh.vertices[t], asc, dec);
-	}
-  pointMesh.verticesNeedUpdate = true;
-}
-
-for(let t = 0; t < pointMesh.vertices.length; t += 1)	addPoint(t);
 
 init();
-renderer.render(scene, camera)
 animate();
 
 
@@ -99,24 +49,32 @@ function init()
 
 	scene = new THREE.Scene();
 
-	object = new THREE.Mesh (d12, new THREE.MeshPhongMaterial( {
-					color: 0x000022,
-					emissive: 0x000044,
-					shading: THREE.SmoothShading,
-          opacity: 0.7,
-          transparent: true
-				} ));
+	// let geometry = new THREE.DodecahedronGeometry(10);
+	object = new THREE.Mesh (
+		d12,
+		new THREE.MeshPhongMaterial({
+			color: 0x000022,
+			emissive: 0x000044,
+			shininess: 10,
+			shading: THREE.FlatShading,
+      opacity: 0.4,
+      transparent: true,
+			side: THREE.DoubleSide
+		}),
+		new THREE.MeshPhongMaterial({color: 0x00ffff, emissive: 0x00ffff })
+	);
 
-	object.position.set (0, 0, 0);
+	edgeMeshes.forEach(mesh => scene.add(mesh));
+
 	scene.add (object);
-  let pointObj = new THREE.Points(pointMesh, new THREE.PointsMaterial({color: 0xffffcc, emissive: 0xffffff, size: 0.06125}));
+  let pointObj = new THREE.Points(pointMesh, new THREE.PointsMaterial({color: 0xffffee, emissive: 0xffffff, size: 0.06125}));
   pointObj.scale.set(0.99, 0.99, 0.99);
   scene.add(pointObj);
 
 	camera = new THREE.PerspectiveCamera (45, width/height, 1, 10000);
   camera.position.x = 0;
 	camera.position.y = 0;
-	camera.position.z = 2;
+	camera.position.z = 35;
 	camera.lookAt (new THREE.Vector3(0,0,0));
 
     controls = new THREE.OrbitControls (camera, renderer.domElement);
@@ -124,24 +82,44 @@ function init()
 	var gridXZ = new THREE.GridHelper(100, 10, new THREE.Color(0xff0000), new THREE.Color(0xffffff));
 	scene.add(gridXZ);
 
-	// var pointLight = new THREE.PointLight (0xffffff);
-	// pointLight.position.set (0,300,200);
-	// scene.add (pointLight);
   var lights = [];
   lights[ 0 ] = new THREE.PointLight( 0xffffff, 1, 0 );
   lights[ 1 ] = new THREE.PointLight( 0xff00ff, 1, 0 );
-  lights[ 2 ] = new THREE.PointLight( 0xffffff, 1, 0 );
+  lights[ 2 ] = new THREE.PointLight( 0x0000ff, 1, 0 );
 
   lights[ 0 ].position.set( 0, 200, 0 );
   lights[ 1 ].position.set( 100, 200, 100 );
   lights[ 2 ].position.set( - 100, - 200, - 100 );
 
-  // scene.add( lights[ 0 ] );
+  scene.add( lights[ 0 ] );
   scene.add( lights[ 1 ] );
-  // scene.add( lights[ 2 ] );
+  scene.add( lights[ 2 ] );
 
 	window.addEventListener ('resize', onWindowResize, false);
+
+	let intersectionMesh = Object.assign(new THREE.Geometry(), {vertices: object.geometry.vertices.slice(), faces: [new THREE.Face3(0,1,2)]});
+	scene.add(new THREE.Mesh(intersectionMesh, new THREE.MeshPhongMaterial({color: 0x00ffff, opacity: 0.8, transparent:true, side: THREE.DoubleSide})));
+
+	window.addEventListener('mousemove', e => {
+		let caster = new THREE.Raycaster();
+		caster.setFromCamera(
+			new THREE.Vector2(
+				(e.clientX / window.innerWidth ) * 2 - 1,
+				- (e.clientY / window.innerHeight ) * 2 + 1
+			),
+			camera
+		);
+
+		let intersection = caster.intersectObject(object, true).shift(),
+			polygon = intersection && geometryMeta.polygons.find(p =>
+				p.faces.find(f => f.normal === intersection.face.normal)
+			);
+
+		intersectionMesh.faces = polygon && polygon.faces || [];
+		intersectionMesh.elementsNeedUpdate = true;
+	});
 }
+
 
 function onWindowResize ()
 {
