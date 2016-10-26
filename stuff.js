@@ -14,6 +14,77 @@ function getPointsFromFace(face, geometry) {
 }
 
 
+/**
+ */
+function getGeometryMetadata(geometry) {
+	let {vertices} = geometry;
+	let polygons = collectPlanarPolygons(geometry);
+	let edges = collectEdgesFromPolygons(polygons);
+
+	edges.forEach(edge => {
+		let [a,b] = edge.polygons;
+		polygons[a].edgeMap[edge.id] = polygons[b];
+		polygons[b].edgeMap[edge.id] = polygons[a];
+	});
+
+	return {
+		vertices: vertices.slice(),
+		polygons,
+		edges
+	};
+}
+
+function collectPlanarPolygons(geometry) {
+	return geometry.faces.reduce((polygons, face) => {
+		let polygon = polygons.find(polygon => polygon.normal.angleTo(face.normal) < 0.01);
+		if (!polygon) polygons.push(polygon = {
+			index: polygons.length,
+			faces: [],
+			edges: [],
+			plane: planeFromFace(face, geometry),
+			normal: face.normal,
+			edgeMap: {}
+		});
+
+		polygon.faces.push(Object.assign({}, face, {vertices: getPointsFromFace(face, geometry)}));
+		polygon.edges.push(
+			[face.a, face.b],
+			[face.b, face.c],
+			[face.c, face.a]
+		);
+
+		return polygons;
+	}, []);
+}
+
+function collectEdgesFromPolygons(polygons) {
+	return polygons.reduce((edges, polygon) => {
+		polygon.edges.forEach(pair => {
+			let key = pair.slice().sort((a,b) => a-b).join('-'),
+				edge = edges.find(({id}) => id === key);
+
+			if (!edge) edges.push(edge = { id: key, polygons: [] });
+			edge.polygons.push(polygon.index);
+
+			if (edge.polygons.length > 1 && edge.polygons.every(index => index === polygon.index)) {
+				edges = edges.filter(e => e.id !== edge.id);
+			}
+		});
+
+		return edges;
+	}, []);
+}
+
+function planeFromFace(face, geometry) {
+	return new THREE.Plane().setFromCoplanarPoints(
+		...getPointsFromFace(face, geometry)
+	);
+}
+
+function pointInPolygon(point, {faces}) {
+	return faces.some(({vertices}) => new THREE.Triangle(...vertices).containsPoint(point));
+}
+
 // /**
 //  * Return an array of faces from a given geometry.
 //  *
@@ -117,6 +188,8 @@ function getGeometryMap(geometry) {
     });
   });
 
+	geometry.polygons = polygons;
+
   // console.log(polygons);
   console.log(geometry);
 
@@ -129,18 +202,56 @@ function getGeometryMap(geometry) {
 }
 
 
-// /**
-//  * Cast a ray against a geometry and find the intersection point
-//  *
-//  * @param {THREE.Ray} ray
-//  * @param {THREE.Geometry} geometry
-//  * @returns {THREE.Vecetor3} point
-//  */
-// function projectPoint(ray, geometry) {
-// 	let point, tri;
-// 	return geomtery.faces.find(face => {
-// 		let vertices = getPointsFromFace(face, geometry);
-// 		point = ray.intersectPlane(new THREE.Plane().setFromCoplanarPoints(...vertices));
-// 		return point && new THREE.Triangle(...vertices).containsPoint(point) && point;
-// 	}) && point;
-// }
+/**
+ * Cast a ray against a geometry and find the intersection point
+ *
+ * @param {THREE.Ray} ray
+ * @param {THREE.Geometry} geometry
+ * @returns {null|Object} intersection ({face, point})
+ */
+function projectPoint(ray, geometry) {
+	let point, tri;
+	let face = geometry.faces.find(face => {
+		let vertices = getPointsFromFace(face, geometry);
+		point = ray.intersectPlane(new THREE.Plane().setFromCoplanarPoints(...vertices));
+		return point && new THREE.Triangle(...vertices).containsPoint(point) && point;
+	});
+
+	return face && {face, point};
+}
+
+/**
+ * Find intersection point and polygon (if any) in collection of polygons
+ *
+ * @param {THREE.Ray} ray
+ * @param {THREE.Geometry} geometry
+ * @returns {null|Object} intersection ({face, point})
+ */
+function intersectPolygons(ray, polygons) {
+	let point, polygon = polygons.find(polygon => {
+		point = ray.intersectPlane(polygon.plane);
+		return point && pointInPolygon(point, polygon) && point;
+	});
+
+	return polygon && {polygon, point};
+}
+
+
+/**
+ * Create a ray from the origin to a point described by angles theta and phi.
+ *
+ * @param {Float} theta - angle around y axis in radians
+ * @param {Float} phi - angle around x axis in radians
+ * @returns {THREE.Ray} ray
+ */
+function rayFromAngles(theta, phi) {
+	phi += Math.PI/2;
+	return new THREE.Ray(
+		new THREE.Vector3(0, 0, 0),
+		new THREE.Vector3(
+			Math.cos(theta) * Math.sin(phi),
+			Math.cos(phi),
+			Math.sin(theta) * Math.sin(phi)
+		).normalize()
+	);
+}
