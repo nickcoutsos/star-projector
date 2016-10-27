@@ -313,3 +313,29 @@ export function rayFromAngles(theta, phi) {
     ).normalize()
   );
 }
+
+
+/**
+ * Produce a tree of polygons starting from a given polygon and following one or more edges
+ *
+ * @param {Object} polygon - an object with edges pointing to adjacent and shared edges and their containing polygon
+ * @param {Array<Object>} directions - an array of one or more edges to follow in the given polygon and further directions to take from there.
+ * @returns {Array<Object>} polygons
+ */
+export function travel(edge, next) {
+  return {
+    node: {
+      edge,
+      poly: edge.poly,
+    },
+    children: [].concat(next).map(e => {
+      let target;
+      if (typeof e === 'number') target = edge.poly.edges[e];
+      else if (e.index !== undefined) target = edge.poly.edges[e.index];
+      else if (e.offset) target = ARRAY_CYCLE(edge.poly.edges, edge.index + e.offset);
+      else throw new Error('Expected relative edge offset property');
+
+      return travel(target.shared, e.next || []);
+    })
+  }
+}
