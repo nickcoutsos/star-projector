@@ -1,5 +1,5 @@
 import {Geometry, Mesh, Object3D, Points} from 'three';
-import {Color, DoubleSide, MeshPhongMaterial, PointsMaterial, VertexColors} from 'three';
+import {Color, DoubleSide, MeshBasicMaterial, PointsMaterial, VertexColors} from 'three';
 
 export class GeometryHighlighter {
   constructor(geometry, scene) {
@@ -17,7 +17,7 @@ export class GeometryHighlighter {
 
         new Mesh(
           Object.assign(new Geometry(), {vertices: geometry.vertices.slice(), faces: p.faces.slice()}),
-          new MeshPhongMaterial({color: 0x00ffff, opacity: 0.8, transparent:true, side: DoubleSide})
+          new MeshBasicMaterial({color: 0x660000, opacity: 0.8, transparent:true, side: DoubleSide})
         ),
 
         new Points(

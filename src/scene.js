@@ -1,6 +1,6 @@
 import {DodecahedronGeometry} from 'three';
-import {Color, Geometry, GridHelper, Mesh, PerspectiveCamera, PointLight, Points, PointsMaterial, Raycaster, Scene, Vector2, Vector3, WebGLRenderer} from 'three';
-import {getGeometryMetadata, intersectPolygons, rayFromAngles} from './stuff';
+import {Color, Geometry, GridHelper, LineSegments, LineDashedMaterial, Mesh, PerspectiveCamera, PointLight, Points, PointsMaterial, Raycaster, Scene, Vector2, Vector3, WebGLRenderer} from 'three';
+import {getGeometryMetadata, intersectPolygons, rayFromAngles, travel} from './stuff';
 import {OrbitControls} from './OrbitControls';
 import bsc from './catalogs/bsc.json';
 import {GeometryHighlighter} from './highlighter';
@@ -51,7 +51,7 @@ function init()
 		let obj = new Points(
 			mesh,
 			new PointsMaterial({
-				color: new Color(`hsl(${i * hueStep % 360}, 90%, ${50 + Math.floor(i/lightStep)*20}%)`),
+				color: new Color(0x990000),//new Color(`hsl(${i * hueStep % 360}, 90%, ${50 + Math.floor(i/lightStep)*20}%)`),
 				size: 0.125
 			})
 		);
@@ -81,6 +81,55 @@ function init()
   // scene.add( lights[ 0 ] );
   scene.add( lights[ 1 ] );
   scene.add( lights[ 2 ] );
+
+	// function highlight(cycle, i=0, delay=600) {
+	// 	highlighter.highlight(cycle[i].index);
+	// 	setTimeout(() => highlight(cycle, (i+1) % cycle.length, delay), delay);
+	// }
+
+	let tree = travel(
+		geometryMeta.polygons[0].edges[0], [
+			{index: 0},
+			{index: 1},
+			{index: 2},
+			{index: 3},
+			{index: 4, next: [
+				{offset: -2, next: [
+					{offset: 2, next: [
+						{offset: 1},
+						{offset: 2},
+						{offset: 3},
+						{offset: 4}
+					]}
+				]}
+			]}
+		]
+	);
+
+	function flatten(root) {
+		return [].concat(root.node, ...(root.children || []).map(flatten))
+	}
+
+	function edgesToGeometry(edges, vertices) {
+		return Object.assign(
+			new Geometry(), {
+				vertices: [].concat(...edges.map(e => e.id.split('-'))).map(n => vertices[n].clone())
+			}
+		)
+	}
+
+	let flat = flatten(tree);
+	let edges = flat.map(node => node.edge.id),
+		cuts = edgesToGeometry(geometryMeta.edges.filter(e => edges.indexOf(e.id) === -1), geometryMeta.vertices),
+		folds = edgesToGeometry(geometryMeta.edges.filter(e => edges.indexOf(e.id) !== -1), geometryMeta.vertices);
+
+	cuts.computeLineDistances();
+	folds.computeLineDistances();
+
+	scene.add(new LineSegments(cuts, new LineDashedMaterial({color: 0xff0000, linewidth: 2.5, dashSize: 0.5, gapSize: 0.125})));
+	scene.add(new LineSegments(folds, new LineDashedMaterial({color: 0x660000, linewidth: 2.75, dashSize: 0.5, gapSize: 0.125})));
+
+	// highlight(flat.map(node => node.poly), 0, 1000);
 
 	window.addEventListener ('resize', onWindowResize, false);
 
