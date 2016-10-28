@@ -28,8 +28,8 @@ export function getGeometryMetadata(geometry) {
 
   polygons.forEach(p => p.edgeIndex = {});
   polygons.forEach(p => {
-    p.vertices = orderPolygonVertices(p, geometry);
     p.center = p.vertices.map(n => geometry.vertices[n]).reduce((a, b) => new Vector3().addVectors(a, b)).divideScalar(p.vertices.length);
+    p.vertices = orderPolygonVertices(p, geometry);
     // let len = p.vertices.length;
     // p.edges = new Array(len);
     p.edges = p.vertices.map((v, i, vertices) => ({
@@ -107,17 +107,16 @@ export function collectPlanarPolygons(geometry) {
 
 export function orderPolygonVertices(polygon, geometry) {
   let vertices = polygon.vertices.map(v => geometry.vertices[v]),
-    center = vertices.reduce((a, b) => new Vector3().addVectors(a, b)).divideScalar(5),
-    points = vertices.map((v, i) => ({index: polygon.vertices[i], vertex: v, vector: new Vector3().subVectors(v, center)}));
-
+    points = vertices.map((v, i) => ({index: polygon.vertices[i], vertex: v, vector: new Vector3().subVectors(v, polygon.center)}));
     points.forEach(p => {
       let angle = p.vector.angleTo(points[0].vector),
         cross = new Vector3().crossVectors(points[0].vector, p.vector);
-        if (cross.angleTo(polygon.normal) > 0.01) angle = 2*Math.PI - angle;
-        p.angle = angle;
+
+      if (cross.angleTo(polygon.normal) > 0.01) angle = 2*Math.PI - angle;
+      p.angle = angle;
     });
 
-    points.sort((a, b) => a.angle - b.angle);
+  points.sort((a, b) => a.angle - b.angle);
   return points.map(p => p.index);
 }
 
