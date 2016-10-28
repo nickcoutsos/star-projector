@@ -29,11 +29,17 @@ export function getGeometryMetadata(geometry) {
   polygons.forEach(p => p.edgeIndex = {});
   polygons.forEach(p => {
     p.vertices = orderPolygonVertices(p, geometry);
+    p.center = p.vertices.map(n => geometry.vertices[n]).reduce((a, b) => new Vector3().addVectors(a, b)).divideScalar(p.vertices.length);
     // let len = p.vertices.length;
     // p.edges = new Array(len);
     p.edges = p.vertices.map((v, i, vertices) => ({
       index: i,
       id: ID_FROM_PAIR(v, ARRAY_CYCLE(vertices, i + 1)),
+      point: geometry.vertices[v].clone(),
+      vector: new Vector3().subVectors(
+        geometry.vertices[ARRAY_CYCLE(vertices, i + 1)],
+        geometry.vertices[v]
+      ).normalize(),
       poly: p
     }));
 
@@ -83,7 +89,7 @@ export function collectPlanarPolygons(geometry) {
       edges: [],
       vertices: [],
       plane: planeFromFace(face, geometry),
-      normal: face.normal,
+      normal: face.normal.clone(),
       edgeMap: {}
     });
 
