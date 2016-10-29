@@ -308,13 +308,12 @@ export function intersectPolygons(ray, polygons) {
 * @returns {THREE.Ray} ray
 */
 export function rayFromAngles(theta, phi) {
-  phi += Math.PI/2;
   return new Ray(
     new Vector3(0, 0, 0),
     new Vector3(
-      Math.cos(theta) * Math.sin(phi),
+      Math.sin(phi) * Math.sin(theta),
       Math.cos(phi),
-      Math.sin(theta) * Math.sin(phi)
+      Math.sin(phi) * Math.cos(theta)
     ).normalize()
   );
 }
