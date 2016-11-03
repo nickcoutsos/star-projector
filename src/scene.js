@@ -3,26 +3,29 @@ import {AxisHelper, Object3D, Color, Geometry, GridHelper, Matrix4, LineSegments
 import {getGeometryMetadata, intersectPolygons, rayFromAngles, travel} from './stuff';
 import {OrbitControls} from './OrbitControls';
 import bsc from './catalogs/bsc_filtered.json';
-import spiraltest from './catalogs/spiraltest.js';
-
-// import {GeometryHighlighter} from './highlighter';
+// import spiraltest from './catalogs/spiraltest.js';
+import {getGeometryNet} from './geometry/nets';
 
 const FRONT = new Vector3(0,0,1);
 var scene, renderer, camera;
 var controls;
 var root;
+// var d12 = new TetrahedronGeometry(10);
 // var d12 = new BoxGeometry(10, 10, 10);
-var d12 = new IcosahedronGeometry(10);
-// var d12 = new BoxGeometry(10,10,10);
+// var d12 = new OctahedronGeometry(10);
+var d12 = new DodecahedronGeometry(10);
+// var d12 = new IcosahedronGeometry(10);
 
 
 var geometryMeta = getGeometryMetadata(d12);
+const DIHEDRAL = geometryMeta.polygons[0].normal.angleTo(geometryMeta.polygons[0].edges[0].shared.poly.normal);
 console.log(geometryMeta);
 
 let pointMeshes = geometryMeta.polygons.map(() => Object.assign(new Geometry(), {vertices: []}));
 
 
 bsc.filter(star => star.mag < 350).map(s => Object.assign({}, s, {sdec0: s.sdec0 - Math.PI/2}))
+// spiraltest
 	.map(({sra0, sdec0}) => intersectPolygons(rayFromAngles(sra0, sdec0), geometryMeta.polygons))
 	.filter(intersection => intersection)
 	.map(({polygon, point}) => {
@@ -33,8 +36,6 @@ bsc.filter(star => star.mag < 350).map(s => Object.assign({}, s, {sdec0: s.sdec0
 console.log('catalog size', bsc.length);
 console.log('mapped stars', pointMeshes.map(m => m.vertices.length).reduce((a,b) => a+b))
 
-const DIHEDRAL = Math.acos(Math.sqrt(5) / 3);
-// const DIHEDRAL = Math.atan(2);
 init();
 animate();
 
@@ -72,118 +73,17 @@ function init()
 	camera.position.y = 0;
 	camera.position.z = 40;
 	camera.lookAt (new Vector3(0,0,0));
-
-    controls = new OrbitControls (camera, renderer.domElement);
+  controls = new OrbitControls (camera, renderer.domElement);
 
 	scene.add(new GridHelper(12, 6, new Color(0xff0000), new Color(0xaa4444)));
-
-  // var lights = [];
-  // lights[ 0 ] = new PointLight( 0xffffff, 1, 0 );
-  // lights[ 1 ] = new PointLight( 0xff00ff, 1, 0 );
-  // lights[ 2 ] = new PointLight( 0x0000ff, 1, 0 );
-	//
-  // lights[ 0 ].position.set( 0, 200, 0 );
-  // lights[ 1 ].position.set( 100, 200, 100 );
-  // lights[ 2 ].position.set( - 100, - 200, - 100 );
-	//
-  // // scene.add( lights[ 0 ] );
-  // scene.add( lights[ 1 ] );
-  // scene.add( lights[ 2 ] );
 
 	// function highlight(cycle, i=0, delay=600) {
 	// 	highlighter.highlight(cycle[i].index);
 	// 	setTimeout(() => highlight(cycle, (i+1) % cycle.length, delay), delay);
 	// }
 
-	// const DIHEDRAL = Math.atan(2);
-	// let tree = travel(
-	// 	geometryMeta.polygons[9].edges[0], [
-	// 		{index: 1, next: [
-	// 			{offset: 1},
-	// 			{offset: 2},
-	// 			{offset: 3},
-	// 			{offset: 4},
-	// 		]},
-	// 		{index: 4, next: [
-	// 			{offset: 2, next: [
-	// 				{offset: 1},
-	// 				{offset: 2},
-	// 				{offset: 3},
-	// 				{offset: 4},
-	// 			]}
-	// 		]}
-	// 	]
-	// );
-
-
-	let tree = travel(
-		geometryMeta.polygons[0].edges[0], [
-			{index: 2},
-			{index: 1, next: [
-				{offset: 1},
-				{offset: 2, next: [
-					{offset: 2},
-					{offset: 1, next: [
-						{offset: 1},
-						{offset: 2, next: [
-							{offset: 2}
-						]}
-					]}
-				]}
-			]},
-			{index: 0, next: [
-				{offset: 2},
-				{offset: 1, next: [
-					{offset: 1},
-					{offset: 2, next: [
-						{offset: 2},
-						{offset: 1, next: [
-							{offset: 1},
-							{offset: 2, next: [
-								{offset: 2}
-							]}
-						]}
-					]}
-				]}
-			]}
-		]
-	);
-
-	// let tree = travel(
-	// 	geometryMeta.polygons[0].edges[0], [
-	// 		0, 1, 3,
-	// 		{index: 2, next: [
-	// 			{offset: 2}
-	// 		]}
-	// 	]
-	// );
-
-	console.log('tree', tree);
-
-	function flatten(root) {
-		return [].concat(root.node, ...(root.children || []).map(flatten))
-	}
-
-	function edgesToGeometry(edges, vertices) {
-		return Object.assign(
-			new Geometry(), {
-				vertices: [].concat(...edges.map(e => e.id.split('-'))).map(n => vertices[n].clone())
-			}
-		)
-	}
-
-	// let flat = flatten(tree);
-	// let edges = flat.map(node => node.edge.id),
-	// 	cuts = edgesToGeometry(geometryMeta.edges.filter(e => edges.indexOf(e.id) === -1), geometryMeta.vertices),
-	// 	folds = edgesToGeometry(geometryMeta.edges.filter(e => edges.indexOf(e.id) !== -1), geometryMeta.vertices);
-	//
-	// cuts.computeLineDistances();
-	// folds.computeLineDistances();
-	//
-	// scene.add(new LineSegments(cuts, new LineDashedMaterial({color: 0xff0000, linewidth: 2.5, dashSize: 0.5, gapSize: 0.125})));
-	// scene.add(new LineSegments(folds, new LineDashedMaterial({color: 0x660000, linewidth: 2.75, dashSize: 0.5, gapSize: 0.125})));
-	// scene.add(new AxisHelper(10));
-
+	let net = getGeometryNet(geometryMeta);
+	let tree = travel(geometryMeta.polygons[0].edges[0], net);
 
 	function build(tree, offset=new Vector3()) {
 		let node = tree.node,
@@ -192,29 +92,29 @@ function init()
 			object = new Object3D(),
 			offsetNode = new Object3D();
 
-			offsetNode.position.sub(node.edge.point);
+		offsetNode.position.sub(node.edge.point);
 
-			object.userData.pivot = node.edge.vector;
-			object.rotateOnAxis(node.edge.vector, DIHEDRAL);
-			object.position.sub(offset).add(node.edge.point);
+		object.userData.pivot = node.edge.vector;
+		object.rotateOnAxis(node.edge.vector, DIHEDRAL);
+		object.position.sub(offset).add(node.edge.point);
 
-			let fold = node.edge.id.split('-').map(n => geometryMeta.vertices[Number(n)].clone()),
-				cuts = [].concat(
-					...node.poly.edges
-						.filter(e => e.id !== node.edge.id)
-						.filter(e => tree.children.every(c => c.node.edge.id !== e.id))
-						.map(e => e.id.split('-').map(n => geometryMeta.vertices[Number(n)].clone()))
-				);
-
-			return object.add(
-				offsetNode.add(
-					new Points(Object.assign(new Geometry(), {vertices}), new PointsMaterial({color: 0xffffff, size:0.125})),
-					new LineSegments(Object.assign(new Geometry(), {vertices: fold}), new LineBasicMaterial({color: 0x660000, linewidth: 2})),
-					Object.assign(new LineSegments(Object.assign(new Geometry(), {vertices: cuts}), new LineBasicMaterial({color: 0xff0000, linewidth: 2})), {userData: {type: 'cut'}})
-				)
-				,
-				...tree.children.slice(0).map(child => build(child, node.edge.point))
+		let fold = node.edge.id.split('-').map(n => geometryMeta.vertices[Number(n)].clone()),
+			cuts = [].concat(
+				...node.poly.edges
+					.filter(e => e.id !== node.edge.id)
+					.filter(e => tree.children.every(c => c.node.edge.id !== e.id))
+					.map(e => e.id.split('-').map(n => geometryMeta.vertices[Number(n)].clone()))
 			);
+
+		return object.add(
+			offsetNode.add(
+				new Points(Object.assign(new Geometry(), {vertices}), new PointsMaterial({color: 0xffffff, size:0.125})),
+				new LineSegments(Object.assign(new Geometry(), {vertices: fold}), new LineBasicMaterial({color: 0x660000, linewidth: 2})),
+				Object.assign(new LineSegments(Object.assign(new Geometry(), {vertices: cuts}), new LineBasicMaterial({color: 0xff0000, linewidth: 2})), {userData: {type: 'cut'}})
+			)
+			,
+			...tree.children.slice(0).map(child => build(child, node.edge.point))
+		);
 	}
 
 	root = build(tree);
