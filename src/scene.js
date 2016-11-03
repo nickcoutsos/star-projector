@@ -1,5 +1,5 @@
-import {BoxGeometry, DodecahedronGeometry, IcosahedronGeometry} from 'three';
-import {AxisHelper, Object3D, Color, Geometry, GridHelper, Matrix4, LineSegments, LineBasicMaterial, LineDashedMaterial, Mesh, PerspectiveCamera, PointLight, Points, PointsMaterial, Quaternion, Raycaster, Scene, Vector2, Vector3, WebGLRenderer} from 'three';
+import {BoxGeometry, DodecahedronGeometry, IcosahedronGeometry, TetrahedronGeometry, OctahedronGeometry} from 'three';
+import {AxisHelper, Object3D, Color, Geometry, GridHelper, Matrix4, LineSegments, LineBasicMaterial, LineDashedMaterial, Mesh, MeshBasicMaterial, PerspectiveCamera, PointLight, Points, PointsMaterial, Quaternion, Raycaster, Scene, Vector2, Vector3, WebGLRenderer} from 'three';
 import {getGeometryMetadata, intersectPolygons, rayFromAngles, travel} from './stuff';
 import {OrbitControls} from './OrbitControls';
 import bsc from './catalogs/bsc_filtered.json';
@@ -39,7 +39,6 @@ console.log('mapped stars', pointMeshes.map(m => m.vertices.length).reduce((a,b)
 init();
 animate();
 
-
 function init()
 {
 	renderer = new WebGLRenderer( {antialias:true} );
@@ -49,13 +48,6 @@ function init()
 	document.body.appendChild (renderer.domElement);
 
 	scene = new Scene();
-
-
-	// let highlighter = new GeometryHighlighter(geometryMeta, scene);
-	// var hueStep = Math.max(Math.round(360 / pointMeshes.length), 40),
-	// 	lightStep = 360/hueStep;
-
-
 
 	// pointMeshes.forEach((mesh, i) => {
 	// 	let obj = new Points(
@@ -76,11 +68,6 @@ function init()
   controls = new OrbitControls (camera, renderer.domElement);
 
 	scene.add(new GridHelper(12, 6, new Color(0xff0000), new Color(0xaa4444)));
-
-	// function highlight(cycle, i=0, delay=600) {
-	// 	highlighter.highlight(cycle[i].index);
-	// 	setTimeout(() => highlight(cycle, (i+1) % cycle.length, delay), delay);
-	// }
 
 	let net = getGeometryNet(geometryMeta);
 	let tree = travel(geometryMeta.polygons[0].edges[0], net);
@@ -142,9 +129,6 @@ function init()
 
 
 	let
-		// cross = new Vector3().crossVectors(tree.node.poly.normal, FRONT).normalize(),
-		// angle = FRONT.angleTo(tree.node.poly.normal),
-		// rotation = new Matrix4().makeRotationAxis(cross, angle),
 		baked = new Points(
 			Object.assign(
 				new Geometry(),
@@ -205,40 +189,7 @@ function init()
 			svg.appendChild(point);
 		})
 
-	// baked.geometry.vertices.slice().forEach(v => {
-	// 	let circle = document.createElementNS("http://www.w3.org/2000/svg", 'circle');
-	// 	circle.setAttribute('cx', 400 * (v.x - baked.geometry.boundingBox.min.x) / (baked.geometry.boundingBox.max.x - baked.geometry.boundingBox.min.x));
-	// 	circle.setAttribute('cy', 300 * (v.y - baked.geometry.boundingBox.min.y) / (baked.geometry.boundingBox.max.y - baked.geometry.boundingBox.min.y));
-	// 	circle.setAttribute('r', 1);
-	// 	svg.appendChild(circle);
-	// });
-
-
-	// highlighter.highlight(flat[0].poly.index);
-	// highlight(flat.map(node => node.poly), 0, 1000);
-
 	window.addEventListener ('resize', onWindowResize, false);
-
-	// let caster = new Raycaster(),
-	// 	mesh = new Mesh(d12);
-	// window.addEventListener('mousemove', e => {
-	// 	caster.setFromCamera(
-	// 		new Vector2(
-	// 			(e.clientX / window.innerWidth ) * 2 - 1,
-	// 			- (e.clientY / window.innerHeight ) * 2 + 1
-	// 		),
-	// 		camera
-	// 	);
-	//
-	// 	let intersection = caster.intersectObject(mesh, true).shift(),
-	// 		polygon = intersection && geometryMeta.polygons.find(p =>
-	// 			p.faces.find(f => f.normal === intersection.face.normal)
-	// 		);
-	//
-	// 	// polygon
-	// 	// 	? highlighter.highlight(polygon.index)
-	// 	// 	: highlighter.highlightNone();
-	// });
 }
 
 
