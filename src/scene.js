@@ -4,6 +4,7 @@ import {getGeometryMetadata, intersectPolygons, rayFromAngles, travel} from './s
 import {OrbitControls} from './OrbitControls';
 import bsc from './catalogs/bsc_filtered.json';
 // import spiraltest from './catalogs/spiraltest.js';
+import {getTopology} from './geometry/topology';
 import {getGeometryNet} from './geometry/nets';
 
 const FRONT = new Vector3(0,0,1);
@@ -17,16 +18,17 @@ var d12 = new DodecahedronGeometry(10);
 // var d12 = new IcosahedronGeometry(10);
 
 
-var geometryMeta = getGeometryMetadata(d12);
-const DIHEDRAL = geometryMeta.polygons[0].normal.angleTo(geometryMeta.polygons[0].edges[0].shared.poly.normal);
-console.log(geometryMeta);
+var topology = getTopology(d12);
+// var geometryMeta = getGeometryMetadata(d12);
+// const DIHEDRAL = geometryMeta.polygons[0].normal.angleTo(geometryMeta.polygons[0].edges[0].shared.poly.normal);
+console.log(topology);
 
-let pointMeshes = geometryMeta.polygons.map(() => Object.assign(new Geometry(), {vertices: []}));
+let pointMeshes = topology.polygons.map(() => Object.assign(new Geometry(), {vertices: []}));
 
 
 bsc.filter(star => star.mag < 350).map(s => Object.assign({}, s, {sdec0: s.sdec0 - Math.PI/2}))
 // spiraltest
-	.map(({sra0, sdec0}) => intersectPolygons(rayFromAngles(sra0, sdec0), geometryMeta.polygons))
+	.map(({sra0, sdec0}) => intersectPolygons(rayFromAngles(sra0, sdec0), topology.polygons))
 	.filter(intersection => intersection)
 	.map(({polygon, point}) => {
 		pointMeshes[polygon.index].vertices.push(point);
@@ -69,8 +71,8 @@ function init()
 
 	scene.add(new GridHelper(12, 6, new Color(0xff0000), new Color(0xaa4444)));
 
-	let net = getGeometryNet(geometryMeta);
-	let tree = travel(geometryMeta.polygons[0].edges[0], net);
+	let net = getGeometryNet(topology);
+	let tree = travel(topology.polygons[0].edges[0], net);
 
 	function build(tree, offset=new Vector3()) {
 		let node = tree.node,
@@ -82,15 +84,15 @@ function init()
 		offsetNode.position.sub(node.edge.point);
 
 		object.userData.pivot = node.edge.vector;
-		object.rotateOnAxis(node.edge.vector, DIHEDRAL);
+		object.rotateOnAxis(node.edge.vector, topology.dihedral);
 		object.position.sub(offset).add(node.edge.point);
 
-		let fold = node.edge.id.split('-').map(n => geometryMeta.vertices[Number(n)].clone()),
+		let fold = node.edge.id.split('-').map(n => topology.vertices[Number(n)].clone()),
 			cuts = [].concat(
 				...node.poly.edges
 					.filter(e => e.id !== node.edge.id)
 					.filter(e => tree.children.every(c => c.node.edge.id !== e.id))
-					.map(e => e.id.split('-').map(n => geometryMeta.vertices[Number(n)].clone()))
+					.map(e => e.id.split('-').map(n => topology.vertices[Number(n)].clone()))
 			);
 
 		return object.add(
@@ -204,7 +206,7 @@ function onWindowResize ()
 let t = 0;
 function animate()
 {
-	let angle = (Math.sin(t) + 1) * 0.5 * DIHEDRAL;
+	let angle = (Math.sin(t) + 1) * 0.5 * topology.dihedral;
 	t += 0.0125;
 	root.traverse(node => {
 		if (node === root) return;
