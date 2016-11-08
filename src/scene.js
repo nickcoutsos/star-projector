@@ -151,49 +151,32 @@ function init()
 	boundingBox.max = new Vector3(boundingBox.max.x, boundingBox.max.y, 0);
 	boundingBox.range = new Vector3().subVectors(boundingBox.max, boundingBox.min);
 
-	let output = svg.element('svg', {
-		id: 'output',
-		preserveAspectRatio: 'none',
-		viewBox: [
-			boundingBox.min.x, boundingBox.min.y,
-			boundingBox.range.x, boundingBox.range.y
-		].join(' ')
-	});
+	document.body.appendChild(
+		svg.element('svg', {
+			id: 'output',
+			preserveAspectRatio: 'none',
+			viewBox: [
+				boundingBox.min.x, boundingBox.min.y,
+				boundingBox.range.x, boundingBox.range.y
+			].join(' ')
+		}, [
+			svg.element('g', {stroke: 'red', 'stroke-width': 0.15},
+				edgeCuts.map(([a, b]) => svg.element('line', {x1: a.x, y1: a.y, x2: b.x, y2: b.y}))
+			),
+			svg.element('g', {stroke: 'blue', 'stroke-width': 0.15},
+				edgeFolds.map(([a, b]) => svg.element('line', {x1: a.x, y1: a.y, x2: b.x, y2: b.y}))
+			),
+			svg.element('g', {stroke: 'red', 'stroke-width': 0.05, fill: 'transparent'},
+				stars.map(({polygon, mag, point}) => {
+					let matrix = (flattenedPolygons[polygon.index] || {}).matrix || new Matrix4(),
+						size = (1 - mag / 350) * 0.25 + .1,
+						{x, y} = point.clone().applyMatrix4(matrix);
 
-	document.body.appendChild(output);
-
-	edgeCuts.forEach(edge => output.appendChild(makeLine(...edge, 'red')));
-	edgeFolds.forEach(edge => output.appendChild(makeLine(...edge, 'blue')));
-
-	function makeLine(p1, p2, stroke) {
-		let line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-		line.setAttribute('x1', p1.x);
-		line.setAttribute('x2', p2.x);
-		line.setAttribute('y1', p1.y);
-		line.setAttribute('y2', p2.y);
-		line.setAttribute('stroke', stroke);
-		line.setAttribute('stroke-width', '0.1');
-		return line;
-	}
-
-	function makePoint({x, y}, radius, stroke) {
-		let point = document.createElementNS("http://www.w3.org/2000/svg", 'circle');
-		point.setAttribute('cx', x);
-		point.setAttribute('cy', y);
-		point.setAttribute('r', radius);
-		point.setAttribute('stroke', stroke);
-		point.setAttribute('stroke-width', '0.05');
-		point.setAttribute('fill', 'transparent');
-		return point;
-	}
-
-	stars.forEach(star => {
-		let matrix = (flattenedPolygons[star.polygon.index] || {}).matrix || new Matrix4(),
-			size = (1 - star.mag / 350) * 0.25 + .1;
-
-
-		output.appendChild(makePoint(star.point.clone().applyMatrix4(matrix), size, 'red'));
-	});
+					return svg.element('circle', {cx: x, cy: y, r: size});
+				})
+			)
+		])
+	);
 
 	window.addEventListener ('resize', onWindowResize, false);
 }
