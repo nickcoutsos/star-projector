@@ -1,6 +1,6 @@
 import {BoxGeometry, DodecahedronGeometry, IcosahedronGeometry, TetrahedronGeometry, OctahedronGeometry} from 'three';
-import {AxisHelper, Object3D, Color, Geometry, GridHelper, Matrix4, LineSegments, LineBasicMaterial, LineDashedMaterial, Mesh, MeshBasicMaterial, PerspectiveCamera, PointLight, Points, PointsMaterial, Quaternion, Raycaster, Scene, Vector2, Vector3, WebGLRenderer} from 'three';
-import {getGeometryMetadata, intersectPolygons, rayFromAngles, travel} from './stuff';
+import {Object3D, Color, Geometry, GridHelper, Matrix4, LineSegments, LineBasicMaterial, LineDashedMaterial, Mesh, MeshBasicMaterial, PerspectiveCamera, PointLight, Points, PointsMaterial, Quaternion, Raycaster, Scene, Vector2, Vector3, WebGLRenderer} from 'three';
+import {intersectPolygons, rayFromAngles} from './stuff';
 import {OrbitControls} from './OrbitControls';
 import bsc from './catalogs/bsc_filtered.json';
 // import spiraltest from './catalogs/spiraltest.js';
@@ -123,27 +123,33 @@ function init()
 	root.updateMatrixWorld();
 	console.log(root);
 
-	function bakeDescendantTransformations(object, include) {
-		return [].concat(
-			...(include(object) ? object.geometry.vertices.map(v => v.clone().applyMatrix4(object.matrixWorld)) : []),
-			...(object.children.map(c => bakeDescendantTransformations(c, include)))
-		);
-	}
-
 	scene.add(root);
 
+	let edgeCuts = [].concat(...Object.keys(flattenedPolygons).map(i => flattenedPolygons[i]).map(p => p.edgeCuts.map(e => e.map(v => v.clone().applyMatrix4(p.matrix))))),
+		edgeFolds = Object.keys(flattenedPolygons).map(i => flattenedPolygons[i]).map(p => p.edgeFold.map(v => v.clone().applyMatrix4(p.matrix))).filter(n => n.length),
+		boundingBox = edgeCuts.reduce(({min, max}, edge) => {
+			return{
+				min: {x: Math.min(min.x, ...edge.map(p => p.x)), y: Math.min(min.y, ...edge.map(p => p.y))},
+				max: {x: Math.max(max.x, ...edge.map(p => p.x)), y: Math.max(max.y, ...edge.map(p => p.y))}
+			};
+		}
+		, {
+			min: {x: Infinity, y: Infinity},
+			max: {x: -Infinity, y: -Infinity}
+		});
 
-	let
-		baked = new Points(
+	scene.add(
+		new LineSegments(
 			Object.assign(
 				new Geometry(),
-				{vertices: bakeDescendantTransformations(root, n => n.type === 'Points')}
-			),
-			new PointsMaterial({color: 0xff0000, size: 0.06125})
-		);
+				{vertices: [].concat(...edgeCuts)}
+			)
+		)
+	);
 
-	baked.geometry.computeBoundingBox();
-	// scene.add(baked);
+	boundingBox.min = new Vector3(boundingBox.min.x, boundingBox.min.y, 0);
+	boundingBox.max = new Vector3(boundingBox.max.x, boundingBox.max.y, 0);
+	boundingBox.range = new Vector3().subVectors(boundingBox.max, boundingBox.min);
 
 	let output = svg.element('svg', {
 		id: 'output',
@@ -156,38 +162,19 @@ function init()
 
 	document.body.appendChild(output);
 
-	let bakedEdges = new LineSegments(
-		Object.assign(
-			new Geometry(),
-			{vertices: bakeDescendantTransformations(root, n => n.type === 'LineSegments' && n.userData.type === 'cut')}
-		)
-	);
-	scene.add(bakedEdges);
-	bakedEdges.geometry.computeBoundingBox();
-	console.log(bakedEdges.geometry.vertices);
-	bakedEdges.geometry.vertices
-		.reduce((pairs, point) => {if (!pairs.length || pairs[pairs.length-1].length === 2) pairs.push([]); pairs[pairs.length-1].push(point); return pairs;}, [])
-		.forEach(([v1, v2]) => {
-			let line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-			line.setAttribute('x1', 400 * (v1.x - bakedEdges.geometry.boundingBox.min.x) / (bakedEdges.geometry.boundingBox.max.x - bakedEdges.geometry.boundingBox.min.x));
-			line.setAttribute('x2', 400 * (v2.x - bakedEdges.geometry.boundingBox.min.x) / (bakedEdges.geometry.boundingBox.max.x - bakedEdges.geometry.boundingBox.min.x));
-			line.setAttribute('y1', 300 * (v1.y - bakedEdges.geometry.boundingBox.min.y) / (bakedEdges.geometry.boundingBox.max.y - bakedEdges.geometry.boundingBox.min.y));
-			line.setAttribute('y2', 300 * (v2.y - bakedEdges.geometry.boundingBox.min.y) / (bakedEdges.geometry.boundingBox.max.y - bakedEdges.geometry.boundingBox.min.y));
-			line.setAttribute('stroke', 'red');
-			svg.appendChild(line);
-		});
+	edgeCuts.forEach(edge => output.appendChild(makeLine(...edge, 'red')));
+	edgeFolds.forEach(edge => output.appendChild(makeLine(...edge, 'blue')));
 
-	bakeDescendantTransformations(root, n => n.type === 'LineSegments' && n.userData.type !== 'cut')
-		.reduce((pairs, point) => {if (!pairs.length || pairs[pairs.length-1].length === 2) pairs.push([]); pairs[pairs.length-1].push(point); return pairs;}, [])
-		.forEach(([v1, v2]) => {
-			let line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-			line.setAttribute('x1', 400 * (v1.x - bakedEdges.geometry.boundingBox.min.x) / (bakedEdges.geometry.boundingBox.max.x - bakedEdges.geometry.boundingBox.min.x));
-			line.setAttribute('x2', 400 * (v2.x - bakedEdges.geometry.boundingBox.min.x) / (bakedEdges.geometry.boundingBox.max.x - bakedEdges.geometry.boundingBox.min.x));
-			line.setAttribute('y1', 300 * (v1.y - bakedEdges.geometry.boundingBox.min.y) / (bakedEdges.geometry.boundingBox.max.y - bakedEdges.geometry.boundingBox.min.y));
-			line.setAttribute('y2', 300 * (v2.y - bakedEdges.geometry.boundingBox.min.y) / (bakedEdges.geometry.boundingBox.max.y - bakedEdges.geometry.boundingBox.min.y));
-			line.setAttribute('stroke', 'blue');
-			svg.appendChild(line);
-		});
+	function makeLine(p1, p2, stroke) {
+		let line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+		line.setAttribute('x1', p1.x);
+		line.setAttribute('x2', p2.x);
+		line.setAttribute('y1', p1.y);
+		line.setAttribute('y2', p2.y);
+		line.setAttribute('stroke', stroke);
+		line.setAttribute('stroke-width', '0.1');
+		return line;
+	}
 
 	function makePoint({x, y}, radius, stroke) {
 		let point = document.createElementNS("http://www.w3.org/2000/svg", 'circle');
