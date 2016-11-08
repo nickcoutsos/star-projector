@@ -144,3 +144,36 @@ export function getPointsFromFace(face, geometry) {
     geometry.vertices[face.c],
   ];
 }
+
+
+/**
+ * Follow directions of a net to generate a tree of visited polygons in a topology
+ *
+ * @param {Object} source - an edge or polygon from which to begin following directions
+ * @param {Array<Object>} directions - an array of one or more edges to follow in the given polygon and further directions to take from there.
+ * @returns {Array<Object>} polygons
+ */
+export function travel(source, next) {
+  let edge, poly;
+  if (source.edges) {
+    poly = source;
+    edge = poly.edges[0];
+  }
+  else {
+    edge = source;
+    poly = edge.poly;
+  }
+
+  return {
+    node: {edge, poly},
+    children: [].concat(next).map(n => {
+      let target;
+      if (typeof n === 'number') target = poly.edges[n];
+      else if (n.index !== undefined) target = poly.edges[n.index];
+      else if (n.offset) target = CYCLE(poly.edges, edge.index + n.offset);
+      else throw new Error('Expected relative edge offset property');
+
+      return travel(target.shared, n.next || []);
+    })
+  }
+}

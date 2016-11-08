@@ -4,8 +4,9 @@ import {getGeometryMetadata, intersectPolygons, rayFromAngles, travel} from './s
 import {OrbitControls} from './OrbitControls';
 import bsc from './catalogs/bsc_filtered.json';
 // import spiraltest from './catalogs/spiraltest.js';
-import {getTopology} from './geometry/topology';
+import {getTopology, travel} from './geometry/topology';
 import {getGeometryNet} from './geometry/nets';
+import * as svg from './svg';
 
 const FRONT = new Vector3(0,0,1);
 var scene, renderer, camera;
@@ -19,24 +20,23 @@ var d12 = new DodecahedronGeometry(10);
 
 
 var topology = getTopology(d12);
-// var geometryMeta = getGeometryMetadata(d12);
-// const DIHEDRAL = geometryMeta.polygons[0].normal.angleTo(geometryMeta.polygons[0].edges[0].shared.poly.normal);
-console.log(topology);
 
 let pointMeshes = topology.polygons.map(() => Object.assign(new Geometry(), {vertices: []}));
 
 
-bsc.filter(star => star.mag < 350).map(s => Object.assign({}, s, {sdec0: s.sdec0 - Math.PI/2}))
+let stars = bsc.filter(star => star.mag < 350).map(s => Object.assign({}, s, {sdec0: s.sdec0 - Math.PI/2}))
 // spiraltest
-	.map(({sra0, sdec0}) => intersectPolygons(rayFromAngles(sra0, sdec0), topology.polygons))
-	.filter(intersection => intersection)
-	.map(({polygon, point}) => {
-		pointMeshes[polygon.index].vertices.push(point);
-		return point;
-	});
+	.map(({xno, sra0, sdec0, mag}) => Object.assign({xno, mag}, intersectPolygons(rayFromAngles(sra0, sdec0), topology.polygons) || {}))
+	.filter(({polygon}) => polygon)
+	// .map(({polygon, point}) => {
+	// 	pointMeshes[polygon.index].vertices.push(point);
+	// 	return point;
+	// });
+
+stars.forEach(({polygon, point}) => pointMeshes[polygon.index].vertices.push(point));
 
 console.log('catalog size', bsc.length);
-console.log('mapped stars', pointMeshes.map(m => m.vertices.length).reduce((a,b) => a+b))
+console.log('mapped stars', stars.length);
 
 init();
 animate();
@@ -142,9 +142,16 @@ function init()
 	baked.geometry.computeBoundingBox();
 	// scene.add(baked);
 
-	let svg = document.createElementNS("http://www.w3.org/2000/svg", 'svg');
-	svg.setAttribute('id', 'output')
-	document.body.appendChild(svg);
+	let output = svg.element('svg', {
+		id: 'output',
+		preserveAspectRatio: 'none',
+		viewBox: [
+			boundingBox.min.x, boundingBox.min.y,
+			boundingBox.range.x, boundingBox.range.y
+		].join(' ')
+	});
+
+	document.body.appendChild(output);
 
 	let bakedEdges = new LineSegments(
 		Object.assign(
@@ -179,17 +186,24 @@ function init()
 			svg.appendChild(line);
 		});
 
-	bakeDescendantTransformations(root, n => n.type === 'Points')
-		.forEach(({x, y}) => {
-			let point = document.createElementNS("http://www.w3.org/2000/svg", 'circle');
-			point.setAttribute('cx', 400 * (x - bakedEdges.geometry.boundingBox.min.x) / (bakedEdges.geometry.boundingBox.max.x - bakedEdges.geometry.boundingBox.min.x));
-			point.setAttribute('cy', 300 * (y - bakedEdges.geometry.boundingBox.min.y) / (bakedEdges.geometry.boundingBox.max.y - bakedEdges.geometry.boundingBox.min.y));
-			point.setAttribute('r', Math.random() * 2);
-			point.setAttribute('stroke', 'red');
-			point.setAttribute('stroke-width', '0.5');
-			point.setAttribute('fill', 'transparent');
-			svg.appendChild(point);
-		})
+	function makePoint({x, y}, radius, stroke) {
+		let point = document.createElementNS("http://www.w3.org/2000/svg", 'circle');
+		point.setAttribute('cx', x);
+		point.setAttribute('cy', y);
+		point.setAttribute('r', radius);
+		point.setAttribute('stroke', stroke);
+		point.setAttribute('stroke-width', '0.05');
+		point.setAttribute('fill', 'transparent');
+		return point;
+	}
+
+	stars.forEach(star => {
+		let matrix = (flattenedPolygons[star.polygon.index] || {}).matrix || new Matrix4(),
+			size = (1 - star.mag / 350) * 0.25 + .1;
+
+
+		output.appendChild(makePoint(star.point.clone().applyMatrix4(matrix), size, 'red'));
+	});
 
 	window.addEventListener ('resize', onWindowResize, false);
 }
