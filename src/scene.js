@@ -74,35 +74,38 @@ function init()
 	let net = getGeometryNet(topology);
 	let tree = travel(topology.polygons[0].edges[0], net);
 
-	function build(tree, offset=new Vector3()) {
+	let flattenedPolygons = {};
+
+	function build(tree, parent=null) {
 		let node = tree.node,
 			points = pointMeshes[node.poly.index].vertices,
 			vertices = points.map(v => v.clone()),
 			object = new Object3D(),
-			offsetNode = new Object3D();
+			offsetNode = new Object3D(),
+			fold = parent && node.edge,
+			cuts = node.poly.edges.filter(e => e !== fold && tree.children.every(c => c.node.edge.id !== e.id));
 
 		offsetNode.position.sub(node.edge.point);
+		offsetNode.userData.polygon = node.poly.index;
 
 		object.userData.pivot = node.edge.vector;
 		object.rotateOnAxis(node.edge.vector, topology.dihedral);
-		object.position.sub(offset).add(node.edge.point);
+		object.position.sub(parent ? parent.edge.point : new Vector3()).add(node.edge.point);
 
-		let fold = node.edge.id.split('-').map(n => topology.vertices[Number(n)].clone()),
-			cuts = [].concat(
-				...node.poly.edges
-					.filter(e => e.id !== node.edge.id)
-					.filter(e => tree.children.every(c => c.node.edge.id !== e.id))
-					.map(e => e.id.split('-').map(n => topology.vertices[Number(n)].clone()))
-			);
+		let flattened = flattenedPolygons[node.poly.index] = {
+			index: node.poly.index,
+			matrix: offsetNode.matrixWorld,
+			edgeFold: fold && fold.id.split('-').map(n => topology.vertices[Number(n)].clone()) || [],
+			edgeCuts: cuts.map(e => e.id.split('-').map(n => topology.vertices[Number(n)].clone()))
+		}
 
 		return object.add(
 			offsetNode.add(
 				new Points(Object.assign(new Geometry(), {vertices}), new PointsMaterial({color: 0xffffff, size:0.125})),
-				new LineSegments(Object.assign(new Geometry(), {vertices: fold}), new LineBasicMaterial({color: 0x660000, linewidth: 2})),
-				Object.assign(new LineSegments(Object.assign(new Geometry(), {vertices: cuts}), new LineBasicMaterial({color: 0xff0000, linewidth: 2})), {userData: {type: 'cut'}})
-			)
-			,
-			...tree.children.slice(0).map(child => build(child, node.edge.point))
+				new LineSegments(Object.assign(new Geometry(), {vertices: flattened.edgeFold}), new LineBasicMaterial({color: 0x660000, linewidth: 2})),
+				Object.assign(new LineSegments(Object.assign(new Geometry(), {vertices: [].concat(...flattened.edgeCuts)}), new LineBasicMaterial({color: 0xff0000, linewidth: 2})), {userData: {type: 'cut'}})
+			),
+			...tree.children.slice(0).map(child => build(child, node))
 		);
 	}
 
