@@ -203,6 +203,8 @@ function onWindowResize ()
   renderer.render(scene, camera);
 }
 
+let animationEnabled = false
+
 let t = 0;
 function animate()
 {
@@ -215,6 +217,12 @@ function animate()
 		node.rotateOnAxis(node.userData.pivot, angle);
 	});
 	controls.update();
-   requestAnimationFrame ( animate );
 	renderer.render (scene, camera);
+	if (animationEnabled) requestAnimationFrame ( animate );
 }
+
+window.addEventListener('keydown', e => {
+	if (e.keyCode !== 32) return;
+	animationEnabled = !animationEnabled;
+	animationEnabled && animate();
+});
