@@ -1,4 +1,4 @@
-import {Plane, Triangle, Vector3} from 'three';
+import {Plane, Ray, Triangle, Vector3} from 'three';
 
 const CYCLE = (array, index) => array[(array.length + index) % array.length];
 const EDGE_ID = pair => pair.slice().sort((a, b) => a - b).join('-');
@@ -176,4 +176,72 @@ export function travel(source, next) {
       return travel(target.shared, n.next || []);
     })
   }
+}
+
+
+
+function pointInPolygon(point, {faces}) {
+  return faces.some(({vertices}) => new Triangle(...vertices).containsPoint(point));
+}
+
+
+/**
+ * Determine where, if at all, a vector intersects with the given topology.
+ *
+ * @param {Vector3} vector
+ * @param {Object} topology
+ * @returns {Object|false} intersection {point, polygon}
+ */
+export function projectVector(vector, topology) {
+  let ray = new Ray(new Vector3(), vector);
+  let point, polygon = topology.polygons.find(polygon => {
+    point = ray.intersectPlane(polygon.plane);
+    return point && pointInPolygon(point, polygon) && point;
+  });
+
+  return polygon && {polygon, point};
+}
+
+
+/**
+ * Project a line connecting two projected points onto the topology.
+ *
+ * This function serves to handle situations involving points that lie on
+ * separate polygons and must be connected with multiple line segments.
+ *
+ * TODO: Handle situations in which the points are not in adjacent polygons and
+ * additional line segments are needed to span the distance.
+ *
+ * @param {Object} a
+ * @param {Object} a.polygon
+ * @param {Vector3} a.point
+ * @param {Object} b
+ * @param {Object} b.polygon
+ * @param {Vector3} b.point
+ * @returns {Array<Object>} segments - an array of one or more line segments
+ *  described as {polygon, edge} where `edge` is an array of two points and
+ *  `polygon` is the index of the polygon in `topology` on which they lie.
+ */
+export function projectLineSegment(a, b) {
+  // If both points are on the same polygon a straight line can connect them.
+  if (a.polygon.index === b.polygon.index) {
+    return [{polygon: a.polygon.index, edge: [a.point, b.point]}];
+  }
+
+  // If the points lie in adjacent polygons we use them with the origin to
+  // describe a plane, and find the intersection of this plane with the common
+  // edge of the adjacent polygons.
+  let coplanar = new Plane(new Vector3().crossVectors(a.point, b.point), 0),
+    common = a.polygon.edges.find(e => e.shared.poly.index == b.polygon.index);
+
+  if (!common) {
+    console.warn('Points are not in adjacent polygons of the given topology');
+    return [];
+  }
+
+  let connection = new Ray(common.point, common.vector.clone()).intersectPlane(coplanar);
+  return [
+    {polygon: a.polygon.index, edge: [a.point, connection]},
+    {polygon: b.polygon.index, edge: [b.point, connection]}
+  ];
 }
