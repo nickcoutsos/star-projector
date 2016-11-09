@@ -1,12 +1,28 @@
+// geometry
 import {BoxGeometry, DodecahedronGeometry, IcosahedronGeometry, TetrahedronGeometry, OctahedronGeometry} from 'three';
-import {Object3D, Color, Geometry, GridHelper, Matrix4, LineSegments, LineBasicMaterial, LineDashedMaterial, Mesh, MeshBasicMaterial, PerspectiveCamera, PointLight, Points, PointsMaterial, Quaternion, Raycaster, Scene, Vector2, Vector3, WebGLRenderer} from 'three';
+import {Geometry, LineSegments, Points} from 'three';
+
+// core
+import {Object3D, Scene, WebGLRenderer} from 'three';
+import {GridHelper, PerspectiveCamera} from 'three';
+
+// math
+import {Matrix4, Plane, Ray, Vector3} from 'three';
+
+// material
+import {Color, LineBasicMaterial, PointsMaterial} from 'three';
+
 import {intersectPolygons, rayFromAngles} from './stuff';
 import {OrbitControls} from './OrbitControls';
-import bsc from './catalogs/bsc_filtered.json';
+// import bsc from './catalogs/bsc_filtered.json';
+import hd from './catalogs/hd_filtered.json';
+import asterisms from './catalogs/asterisms.json';
 // import spiraltest from './catalogs/spiraltest.js';
-import {getTopology, travel} from './geometry/topology';
+import {getTopology, travel, projectVector, projectLineSegment} from './geometry/topology';
 import {getGeometryNet} from './geometry/nets';
 import * as svg from './svg';
+
+let connectedStars = new Set([].concat(...asterisms.map(a => a.stars)));
 
 const FRONT = new Vector3(0,0,1);
 var scene, renderer, camera;
@@ -24,10 +40,21 @@ var topology = getTopology(d12);
 let pointMeshes = topology.polygons.map(() => Object.assign(new Geometry(), {vertices: []}));
 
 
-let stars = bsc.filter(star => star.mag < 350).map(s => Object.assign({}, s, {sdec0: s.sdec0 - Math.PI/2}))
+function vectorFromAngles(theta, phi) {
+	return new Vector3(
+		Math.sin(phi) * Math.sin(theta),
+		Math.cos(phi),
+		Math.sin(phi) * Math.cos(theta)
+	).normalize();
+}
+
+let stars =
+	hd.filter(star => star.mag <= 5.5 || connectedStars.has(star.hd)).map(s => ({xno: s.hd, sdec0: s.decrad - Math.PI/2, sra0: s.rarad, mag: s.mag * 100}))
+//bsc.filter(star => star.mag < 350).map(s => Object.assign({}, s, {sdec0: s.sdec0 - Math.PI/2}))
 // spiraltest
-	.map(({xno, sra0, sdec0, mag}) => Object.assign({xno, mag}, intersectPolygons(rayFromAngles(sra0, sdec0), topology.polygons) || {}))
-	.filter(({polygon}) => polygon)
+	// .map(({xno, sra0, sdec0, mag}) => Object.assign({xno, mag}, intersectPolygons(rayFromAngles(sra0, sdec0), topology.polygons) || {}))
+	.map(({xno, sra0, sdec0, mag}) => Object.assign({xno, mag}, projectVector(vectorFromAngles(sra0, sdec0), topology	) || {}))
+	// .filter(({polygon}) => polygon)
 	// .map(({polygon, point}) => {
 	// 	pointMeshes[polygon.index].vertices.push(point);
 	// 	return point;
@@ -35,7 +62,20 @@ let stars = bsc.filter(star => star.mag < 350).map(s => Object.assign({}, s, {sd
 
 stars.forEach(({polygon, point}) => pointMeshes[polygon.index].vertices.push(point));
 
-console.log('catalog size', bsc.length);
+let PAIR = (pairs, val) => {
+	let pair = pairs[pairs.length-1];
+	if (pair.length > 1) pairs.push(pair = []);
+	pair.push(val);
+	return pairs;
+};
+
+function mapAsterism(asterism) {
+	return asterism.stars.reduce(PAIR, [[]]).map(pair =>
+		projectLineSegment(...pair.map(id => stars.find(s => s.xno === id)))
+	);
+}
+
+// console.log('catalog size', bsc.length);
 console.log('mapped stars', stars.length);
 
 init();
@@ -75,6 +115,13 @@ function init()
 	let tree = travel(topology.polygons[0].edges[0], net);
 
 	let flattenedPolygons = {};
+	let projectedAsterisms = [].concat(...asterisms.map(mapAsterism)).reduce((map, lines) => {
+		lines.forEach(line => {
+			if (!map[line.polygon]) map[line.polygon] = [];
+			map[line.polygon].push(...line.edge);
+		});
+		return map;
+	}, {});
 
 	function build(tree, parent=null) {
 		let node = tree.node,
@@ -96,14 +143,16 @@ function init()
 			index: node.poly.index,
 			matrix: offsetNode.matrixWorld,
 			edgeFold: fold && fold.id.split('-').map(n => topology.vertices[Number(n)].clone()) || [],
-			edgeCuts: cuts.map(e => e.id.split('-').map(n => topology.vertices[Number(n)].clone()))
+			edgeCuts: cuts.map(e => e.id.split('-').map(n => topology.vertices[Number(n)].clone())),
+			lines: projectedAsterisms[node.poly.index] || []
 		}
 
 		return object.add(
 			offsetNode.add(
 				new Points(Object.assign(new Geometry(), {vertices}), new PointsMaterial({color: 0xffffff, size:0.125})),
 				new LineSegments(Object.assign(new Geometry(), {vertices: flattened.edgeFold}), new LineBasicMaterial({color: 0x660000, linewidth: 2})),
-				Object.assign(new LineSegments(Object.assign(new Geometry(), {vertices: [].concat(...flattened.edgeCuts)}), new LineBasicMaterial({color: 0xff0000, linewidth: 2})), {userData: {type: 'cut'}})
+				Object.assign(new LineSegments(Object.assign(new Geometry(), {vertices: [].concat(...flattened.edgeCuts)}), new LineBasicMaterial({color: 0xff0000, linewidth: 2})), {userData: {type: 'cut'}}),
+				Object.assign(new LineSegments(Object.assign(new Geometry(), {vertices: flattened.lines}), new LineBasicMaterial({color: 0x660000})))
 			),
 			...tree.children.slice(0).map(child => build(child, node))
 		);
@@ -127,6 +176,7 @@ function init()
 
 	let edgeCuts = [].concat(...Object.keys(flattenedPolygons).map(i => flattenedPolygons[i]).map(p => p.edgeCuts.map(e => e.map(v => v.clone().applyMatrix4(p.matrix))))),
 		edgeFolds = Object.keys(flattenedPolygons).map(i => flattenedPolygons[i]).map(p => p.edgeFold.map(v => v.clone().applyMatrix4(p.matrix))).filter(n => n.length),
+		asterismLines = [].concat(...Object.keys(flattenedPolygons).map(i => flattenedPolygons[i]).map(p => p.lines.map(v => v.clone().applyMatrix4(p.matrix))).filter(n => n.length)),
 		boundingBox = edgeCuts.reduce(({min, max}, edge) => {
 			return{
 				min: {x: Math.min(min.x, ...edge.map(p => p.x)), y: Math.min(min.y, ...edge.map(p => p.y))},
@@ -169,11 +219,18 @@ function init()
 			svg.element('g', {stroke: 'red', 'stroke-width': 0.05, fill: 'transparent'},
 				stars.map(({polygon, mag, point}) => {
 					let matrix = (flattenedPolygons[polygon.index] || {}).matrix || new Matrix4(),
-						size = (1 - mag / 350) * 0.25 + .1,
+						size = Math.max(0.1, (1 - mag / 350)) * 0.25 + .1,
 						{x, y} = point.clone().applyMatrix4(matrix);
 
 					return svg.element('circle', {cx: x, cy: y, r: size});
 				})
+			),
+			svg.element('g', {stroke: '#660000', 'stroke-width': 0.1},
+				asterismLines
+					.reduce(PAIR, [[]])
+					.map(([a, b]) =>
+						svg.element('line', {x1: a.x, y1: a.y, x2: b.x, y2: b.y})
+					)
 			)
 		])
 	);
