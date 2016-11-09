@@ -401,6 +401,8 @@ var element = scope.domElement === document ? scope.domElement.body : scope.domE
 			// rotating up and down along whole screen attempts to go 360, but limited to 180
 			scope.rotateUp( 2 * Math.PI * event.deltaY / element.clientHeight * scope.rotateSpeed );
 
+			scope.update();
+
 			rotateStart.copy( rotateEnd );
 
 

@@ -1,3 +1,5 @@
+import debounce from 'debounce';
+
 // geometry
 import {BoxGeometry, DodecahedronGeometry, IcosahedronGeometry, TetrahedronGeometry, OctahedronGeometry} from 'three';
 import {Geometry, LineSegments, Points} from 'three';
@@ -79,7 +81,7 @@ function mapAsterism(asterism) {
 console.log('mapped stars', stars.length);
 
 init();
-animate();
+render();
 
 function init()
 {
@@ -90,6 +92,8 @@ function init()
 	document.body.appendChild (renderer.domElement);
 
 	scene = new Scene();
+	scene.userData.animate = false;
+	scene.userData.time = 0;
 
 	// pointMeshes.forEach((mesh, i) => {
 	// 	let obj = new Points(
@@ -247,26 +251,30 @@ function onWindowResize ()
   renderer.render(scene, camera);
 }
 
-let animationEnabled = false
+let animate;
 
-let t = 0;
-function animate()
-{
-	let angle = (Math.sin(t) + 1) * 0.5 * topology.dihedral;
-	t += 0.0125;
+function render() {
+	let angle = (Math.sin(scene.userData.time / 1000) + 1) * 0.5 * topology.dihedral;
 	root.traverse(node => {
 		if (node === root) return;
 		if (!node.userData.pivot) return;
 		node.rotation.set(0, 0, 0);
 		node.rotateOnAxis(node.userData.pivot, angle);
 	});
-	controls.update();
+
 	renderer.render (scene, camera);
-	if (animationEnabled) requestAnimationFrame ( animate );
+
+	if (scene.userData.animate) {
+		scene.userData.time += 16;
+		requestAnimationFrame (animate);
+	}
 }
+
+animate = debounce(render, 16);
+controls.addEventListener('change', animate);
 
 window.addEventListener('keydown', e => {
 	if (e.keyCode !== 32) return;
-	animationEnabled = !animationEnabled;
-	animationEnabled && animate();
+	scene.userData.animate = !scene.userData.animate;
+	scene.userData.animate && animate();
 });

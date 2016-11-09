@@ -16,6 +16,7 @@
     "babel-core": "6.17.0",
     "babel-loader": "6.2.5",
     "babel-preset-es2015": "6.16.0",
+    "debounce": "^1.0.0",
     "json-loader": "0.5.4",
     "three": "0.81.2",
     "webpack": "1.13.2",
@@ -23,7 +24,7 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "webpack-dev-server --port=8080 --host=0.0.0.0",
+    "dev": "webpack-dev-server -d --port=8080 --host=0.0.0.0",
     "build": "mkdir -p build && webpack && cp src/index.html build/"
   },
   "author": "",
