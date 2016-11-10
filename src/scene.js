@@ -229,7 +229,10 @@ function onWindowResize ()
 let animate;
 
 function render() {
-	let angle = (Math.sin(-Math.PI / 2 + scene.userData.time / 1000) + 1) * 0.5 * topology.dihedral;
+	let alpha = 0.5 * (Math.sin(-Math.PI / 2 + scene.userData.time / 1000) + 1);
+	let angle = alpha * topology.dihedral;
+
+	root.position.z = (1 - alpha) * -8;
 	root.traverse(node => {
 		if (node === root) return;
 		if (!node.userData.pivot) return;
