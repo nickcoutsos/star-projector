@@ -231,6 +231,45 @@ function init()
 		])
 	);
 
+	let list = document.createElement('ul');
+	list.setAttribute('id', 'asterisms');
+	document.body.appendChild(list);
+	asterisms.forEach(({name}) => {
+		let node = document.createElement('li');
+		node.innerText = name;
+		list.appendChild(node);
+	});
+
+	list.addEventListener('mouseover', e => {
+		let target = e.target.innerText;
+		root.traverse(node => {
+			if (!node.userData.asterism) return;
+			node.material = node.userData.asterism === target
+				? new LineBasicMaterial({color: 0xffff00})
+				: new LineBasicMaterial({color: 0x660000});
+		});
+
+		[].slice.call(document.querySelectorAll(`svg g#asterisms-groups > g:not([stroke="transparent"])`))
+			.forEach(element => element.setAttribute('stroke', '#660000'));
+		document.querySelector(`svg g[id="${target}-lines"]`).setAttribute('stroke', '#ff7700');
+
+		animate();
+	});
+
+	list.addEventListener('click', e => {
+		let target = e.target.innerText;
+		e.target.classList.toggle('disabled');
+		root.traverse(node => {
+			if (node.userData.asterism !== target) return;
+			node.visible = !e.target.classList.contains('disabled');
+			document.querySelector(`svg g[id="${target}-lines"]`).setAttribute(
+				'stroke', node.visible ? '#660000' : 'transparent'
+			);
+		});
+
+		animate();
+	});
+
 	window.addEventListener ('resize', onWindowResize, false);
 }
 
