@@ -67,8 +67,16 @@ let PAIR = (pairs, val) => {
 };
 
 function mapAsterism(asterism) {
-	return asterism.stars.reduce(PAIR, [[]]).map(pair =>
-		projectLineSegment(...pair.map(id => stars.find(s => s.xno === id)))
+	return Object.assign(
+		{}, asterism,
+		{segments: asterism.stars
+				.reduce(PAIR, [[]])
+				.map(pair =>
+					projectLineSegment(
+						...pair.map(id => stars.find(s => s.xno === id))
+					)
+				)
+		}
 	);
 }
 
@@ -100,13 +108,13 @@ function init()
 	let tree = travel(topology.polygons[0].edges[0], net);
 
 	let flattenedPolygons = {};
-	let projectedAsterisms = [].concat(...asterisms.map(mapAsterism)).reduce((map, lines) => {
+	let projectedAsterisms = asterisms.map(mapAsterism).map(asterism => ({name: asterism.name, segments: asterism.segments.reduce((map, lines) => {
 		lines.forEach(line => {
 			if (!map[line.polygon]) map[line.polygon] = [];
 			map[line.polygon].push(...line.edge);
 		});
 		return map;
-	}, {});
+	}, {})}));
 
 	function build(tree, parent=null) {
 		let node = tree.node,
@@ -129,15 +137,20 @@ function init()
 			matrix: offsetNode.matrixWorld,
 			edgeFold: fold && fold.id.split('-').map(n => topology.vertices[Number(n)].clone()) || [],
 			edgeCuts: cuts.map(e => e.id.split('-').map(n => topology.vertices[Number(n)].clone())),
-			lines: projectedAsterisms[node.poly.index] || []
-		}
+			lines: projectedAsterisms.filter(({segments}) => segments[node.poly.index])
+		};
 
 		return object.add(
 			offsetNode.add(
 				new Points(Object.assign(new Geometry(), {vertices}), new PointsMaterial({color: 0xffffff, size:0.125})),
 				new LineSegments(Object.assign(new Geometry(), {vertices: flattened.edgeFold}), new LineBasicMaterial({color: 0x660000, linewidth: 2})),
 				Object.assign(new LineSegments(Object.assign(new Geometry(), {vertices: [].concat(...flattened.edgeCuts)}), new LineBasicMaterial({color: 0xff0000, linewidth: 2})), {userData: {type: 'cut'}}),
-				Object.assign(new LineSegments(Object.assign(new Geometry(), {vertices: flattened.lines}), new LineBasicMaterial({color: 0x660000}))),
+				...flattened.lines.map(({name, segments}) =>
+					Object.assign(
+						new LineSegments(Object.assign(new Geometry(), {vertices: segments[node.poly.index]}), new LineBasicMaterial({color: 0x660000})),
+						{userData: {asterism: name}}
+					)
+				),
 				new Mesh(
 					Object.assign(new Geometry(), {vertices: topology.vertices.slice(), faces: node.poly.faces.slice()}),
 					new MeshBasicMaterial({color: 0x440000, transparent: true, opacity: 0.6, side: DoubleSide})
@@ -164,7 +177,7 @@ function init()
 
 	let edgeCuts = [].concat(...Object.keys(flattenedPolygons).map(i => flattenedPolygons[i]).map(p => p.edgeCuts.map(e => e.map(v => v.clone().applyMatrix4(p.matrix))))),
 		edgeFolds = Object.keys(flattenedPolygons).map(i => flattenedPolygons[i]).map(p => p.edgeFold.map(v => v.clone().applyMatrix4(p.matrix))).filter(n => n.length),
-		asterismLines = [].concat(...Object.keys(flattenedPolygons).map(i => flattenedPolygons[i]).map(p => p.lines.map(v => v.clone().applyMatrix4(p.matrix))).filter(n => n.length)),
+		asterismLines = projectedAsterisms.map(({name, segments}) => ({name, lines: [].concat(...Object.keys(segments).map(p => segments[p].map(v => v.clone().applyMatrix4(flattenedPolygons[p].matrix))))})),
 		boundingBox = edgeCuts.reduce(({min, max}, edge) => {
 			return{
 				min: {x: Math.min(min.x, ...edge.map(p => p.x)), y: Math.min(min.y, ...edge.map(p => p.y))},
@@ -204,12 +217,16 @@ function init()
 					return svg.element('circle', {cx: x, cy: y, r: size});
 				})
 			),
-			svg.element('g', {stroke: '#660000', 'stroke-width': 0.1},
-				asterismLines
-					.reduce(PAIR, [[]])
-					.map(([a, b]) =>
-						svg.element('line', {x1: a.x, y1: a.y, x2: b.x, y2: b.y})
+			svg.element('g', {id: 'asterisms-groups'},
+				asterismLines.map(({name, lines}) =>
+					svg.element('g', {id: `${name}-lines`, stroke: '#660000', 'stroke-width': 0.1},
+						lines
+							.reduce(PAIR, [[]])
+							.map(([a, b]) =>
+								svg.element('line', {x1: a.x, y1: a.y, x2: b.x, y2: b.y})
+							)
 					)
+				)
 			)
 		])
 	);
