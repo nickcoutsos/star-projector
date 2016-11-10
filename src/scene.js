@@ -2,7 +2,7 @@ import debounce from 'debounce';
 
 // geometry
 import {BoxGeometry, DodecahedronGeometry, IcosahedronGeometry, TetrahedronGeometry, OctahedronGeometry} from 'three';
-import {Geometry, LineSegments, Points} from 'three';
+import {Mesh, Geometry, LineSegments, Points} from 'three';
 
 // core
 import {Object3D, Scene, WebGLRenderer} from 'three';
@@ -12,12 +12,12 @@ import {GridHelper, PerspectiveCamera} from 'three';
 import {Matrix4, Plane, Ray, Vector3} from 'three';
 
 // material
-import {Color, LineBasicMaterial, PointsMaterial} from 'three';
+import {Color, MeshBasicMaterial, LineBasicMaterial, PointsMaterial, DoubleSide} from 'three';
 
 import {intersectPolygons, rayFromAngles} from './stuff';
 import {OrbitControls} from './OrbitControls';
 // import bsc from './catalogs/bsc_filtered.json';
-import hd from './catalogs/hd_filtered.json';
+import catalog from './catalogs/hd_filtered.json';
 import asterisms from './catalogs/asterisms.json';
 // import spiraltest from './catalogs/spiraltest.js';
 import {getTopology, travel, projectVector, projectLineSegment} from './geometry/topology';
@@ -26,7 +26,7 @@ import * as svg from './svg';
 
 let connectedStars = new Set([].concat(...asterisms.map(a => a.stars)));
 
-const FRONT = new Vector3(0,0,1);
+const BACK = new Vector3(0,0,-1);
 var scene, renderer, camera;
 var controls;
 var root;
@@ -50,17 +50,12 @@ function vectorFromAngles(theta, phi) {
 	).normalize();
 }
 
-let stars =
-	hd.filter(star => star.mag <= 5.5 || connectedStars.has(star.hd)).map(s => ({xno: s.hd, sdec0: s.decrad - Math.PI/2, sra0: s.rarad, mag: s.mag * 100}))
-//bsc.filter(star => star.mag < 350).map(s => Object.assign({}, s, {sdec0: s.sdec0 - Math.PI/2}))
-// spiraltest
-	// .map(({xno, sra0, sdec0, mag}) => Object.assign({xno, mag}, intersectPolygons(rayFromAngles(sra0, sdec0), topology.polygons) || {}))
-	.map(({xno, sra0, sdec0, mag}) => Object.assign({xno, mag}, projectVector(vectorFromAngles(sra0, sdec0), topology	) || {}))
-	// .filter(({polygon}) => polygon)
-	// .map(({polygon, point}) => {
-	// 	pointMeshes[polygon.index].vertices.push(point);
-	// 	return point;
-	// });
+let stars = catalog
+	.filter(star => star.mag <= 7 || connectedStars.has(star.hd))
+	.map(s => ({xno: s.hd, sdec0: s.decrad - Math.PI/2, sra0: s.rarad, mag: s.mag}))
+	.map(({xno, sra0, sdec0, mag}) => Object.assign(
+		{xno, mag}, projectVector(vectorFromAngles(sra0, sdec0), topology))
+	);
 
 stars.forEach(({polygon, point}) => pointMeshes[polygon.index].vertices.push(point));
 
@@ -77,9 +72,6 @@ function mapAsterism(asterism) {
 	);
 }
 
-// console.log('catalog size', bsc.length);
-console.log('mapped stars', stars.length);
-
 init();
 render();
 
@@ -95,21 +87,10 @@ function init()
 	scene.userData.animate = false;
 	scene.userData.time = 0;
 
-	// pointMeshes.forEach((mesh, i) => {
-	// 	let obj = new Points(
-	// 		mesh,
-	// 		new PointsMaterial({
-	// 			color: new Color(`hsl(${i * hueStep % 360}, 90%, 80%)`).multiply(new Color(0xff9999)),
-	// 			size: 0.06125
-	// 		})
-	// 	);
-	// 	// scene.add(obj);
-	// });
-
 	camera = new PerspectiveCamera (85, width/height, 1, 10000);
   camera.position.x = 0;
 	camera.position.y = 0;
-	camera.position.z = 15;
+	camera.position.z = 20;
 	camera.lookAt (new Vector3(0,0,0));
   controls = new OrbitControls (camera, renderer.domElement);
 
@@ -156,7 +137,11 @@ function init()
 				new Points(Object.assign(new Geometry(), {vertices}), new PointsMaterial({color: 0xffffff, size:0.125})),
 				new LineSegments(Object.assign(new Geometry(), {vertices: flattened.edgeFold}), new LineBasicMaterial({color: 0x660000, linewidth: 2})),
 				Object.assign(new LineSegments(Object.assign(new Geometry(), {vertices: [].concat(...flattened.edgeCuts)}), new LineBasicMaterial({color: 0xff0000, linewidth: 2})), {userData: {type: 'cut'}}),
-				Object.assign(new LineSegments(Object.assign(new Geometry(), {vertices: flattened.lines}), new LineBasicMaterial({color: 0x660000})))
+				Object.assign(new LineSegments(Object.assign(new Geometry(), {vertices: flattened.lines}), new LineBasicMaterial({color: 0x660000}))),
+				new Mesh(
+					Object.assign(new Geometry(), {vertices: topology.vertices.slice(), faces: node.poly.faces.slice()}),
+					new MeshBasicMaterial({color: 0x440000, transparent: true, opacity: 0.6, side: DoubleSide})
+				)
 			),
 			...tree.children.slice(0).map(child => build(child, node))
 		);
@@ -165,16 +150,14 @@ function init()
 	root = build(tree);
 	root.rotation.set(0,0,0);
 
-
-
 	let top = tree.node.poly,
-		angle = top.normal.angleTo(FRONT),
-		cross = new Vector3().crossVectors(top.normal, FRONT).normalize(),
+		angle = top.normal.angleTo(BACK),
+		cross = new Vector3().crossVectors(top.normal, BACK).normalize(),
 		rotation = new Matrix4().makeRotationAxis(cross, angle);
 
 	root.applyMatrix(rotation);
 	root.updateMatrixWorld();
-	root.position.set(0, -6, 8);
+	root.position.set(0, 6, -8);
 	console.log(root);
 
 	scene.add(root);
@@ -192,15 +175,6 @@ function init()
 			min: {x: Infinity, y: Infinity},
 			max: {x: -Infinity, y: -Infinity}
 		});
-
-	scene.add(
-		new LineSegments(
-			Object.assign(
-				new Geometry(),
-				{vertices: [].concat(...edgeCuts)}
-			)
-		)
-	);
 
 	boundingBox.min = new Vector3(boundingBox.min.x, boundingBox.min.y, 0);
 	boundingBox.max = new Vector3(boundingBox.max.x, boundingBox.max.y, 0);
@@ -224,7 +198,7 @@ function init()
 			svg.element('g', {stroke: 'red', 'stroke-width': 0.05, fill: 'transparent'},
 				stars.map(({polygon, mag, point}) => {
 					let matrix = (flattenedPolygons[polygon.index] || {}).matrix || new Matrix4(),
-						size = Math.max(0.1, (1 - mag / 350)) * 0.25 + .1,
+						size = Math.max(0.1, (1 - mag / 7)) * 0.25 + .1,
 						{x, y} = point.clone().applyMatrix4(matrix);
 
 					return svg.element('circle', {cx: x, cy: y, r: size});
@@ -255,7 +229,7 @@ function onWindowResize ()
 let animate;
 
 function render() {
-	let angle = (Math.sin(scene.userData.time / 1000) + 1) * 0.5 * topology.dihedral;
+	let angle = (Math.sin(-Math.PI / 2 + scene.userData.time / 1000) + 1) * 0.5 * topology.dihedral;
 	root.traverse(node => {
 		if (node === root) return;
 		if (!node.userData.pivot) return;
