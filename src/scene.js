@@ -6,7 +6,7 @@ import {Mesh, Geometry, LineSegments, Points} from 'three';
 
 // core
 import {Object3D, Scene, WebGLRenderer} from 'three';
-import {GridHelper, PerspectiveCamera} from 'three';
+import {PerspectiveCamera} from 'three';
 
 // math
 import {Matrix4, Plane, Ray, Vector3} from 'three';
@@ -101,8 +101,6 @@ function init()
 	camera.position.z = 20;
 	camera.lookAt (new Vector3(0,0,0));
   controls = new OrbitControls (camera, renderer.domElement);
-
-	scene.add(new GridHelper(12, 6, new Color(0xff0000), new Color(0xaa4444)));
 
 	let net = getGeometryNet(topology);
 	let tree = travel(topology.polygons[0].edges[0], net);
@@ -307,8 +305,7 @@ function render() {
 animate = debounce(render, 16);
 controls.addEventListener('change', animate);
 
-window.addEventListener('keydown', e => {
-	if (e.keyCode !== 32) return;
+renderer.domElement.addEventListener('click', () => {
 	scene.userData.animate = !scene.userData.animate;
 	scene.userData.animate && animate();
 });
