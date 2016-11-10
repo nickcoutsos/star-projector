@@ -109,7 +109,7 @@ function init()
 	camera = new PerspectiveCamera (85, width/height, 1, 10000);
   camera.position.x = 0;
 	camera.position.y = 0;
-	camera.position.z = 40;
+	camera.position.z = 15;
 	camera.lookAt (new Vector3(0,0,0));
   controls = new OrbitControls (camera, renderer.domElement);
 
@@ -174,6 +174,7 @@ function init()
 
 	root.applyMatrix(rotation);
 	root.updateMatrixWorld();
+	root.position.set(0, -6, 8);
 	console.log(root);
 
 	scene.add(root);
