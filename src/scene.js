@@ -168,7 +168,7 @@ function init()
 
 	root.applyMatrix(rotation);
 	root.updateMatrixWorld();
-	root.position.set(0, 6, -8);
+	root.position.add(top.edges[0].point.clone().applyMatrix4(root.matrixWorld));
 	console.log(root);
 
 	scene.add(root);
@@ -286,7 +286,7 @@ function render() {
 	let alpha = 0.5 * (Math.sin(-Math.PI / 2 + scene.userData.time / 1000) + 1);
 	let angle = alpha * topology.dihedral;
 
-	root.position.z = (1 - alpha) * -8;
+	root.position.z = (1 - alpha) * -topology.faceRadius;
 	root.traverse(node => {
 		if (node === root) return;
 		if (!node.userData.pivot) return;

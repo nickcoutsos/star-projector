@@ -64,6 +64,7 @@ export function getTopology(geometry) {
   return {
     vertices: vertices.slice(),
     dihedral: polygons[0].normal.angleTo(polygons[0].edges[0].shared.poly.normal),
+    faceRadius: polygons[0].center.length(),
     polygons
   };
 }
