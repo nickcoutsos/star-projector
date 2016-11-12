@@ -1,4 +1,5 @@
 import debounce from 'debounce';
+import hull from 'convexhull-js';
 
 // geometry
 import {BoxGeometry, DodecahedronGeometry, IcosahedronGeometry, TetrahedronGeometry, OctahedronGeometry} from 'three';
@@ -168,7 +169,28 @@ function init()
 
 	root.applyMatrix(rotation);
 	root.updateMatrixWorld();
+
+	// generate a hull around the flattened mesh to determine how it can be
+	// aligned to the X axis.
+	let edgeHull = hull(
+		[].concat(
+			...[].concat(
+				...Object.keys(flattenedPolygons)
+					.map(i => flattenedPolygons[i])
+					.map(p => p.edgeCuts.map(
+						e => e.map(v => v.clone().applyMatrix4(p.matrix))
+					))
+			)
+		)
+	).map((v, i, points) => ([v, points[(i+1) % points.length]]));
+
+	let longestEdge = edgeHull.map(([a, b]) => a.clone().sub(b)).reduce((a, b) => b.lengthSq() > a.lengthSq() ? b : a),
+		aaRotation = longestEdge.angleTo(new Vector3(1, 0, 0));
+
+	root.applyMatrix(new Matrix4().makeRotationAxis(new Vector3(0, 0, 1), -aaRotation));
+	root.updateMatrixWorld();
 	root.position.add(top.edges[0].point.clone().applyMatrix4(root.matrixWorld));
+
 	console.log(root);
 
 	scene.add(root);
