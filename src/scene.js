@@ -25,6 +25,11 @@ import {getTopology, travel, projectVector, projectLineSegment} from './geometry
 import {getGeometryNet} from './geometry/nets';
 import * as svg from './svg';
 
+asterisms.forEach(asterism => {
+	asterism.starCounts = [].concat(...asterism.stars)
+		.reduce((index, id) => (index[id] = (index[id] || 0) + 1, index), {});
+});
+
 let connectedStars = new Set([].concat(...asterisms.map(a => a.stars)));
 
 const BACK = new Vector3(0,0,-1);
@@ -107,13 +112,23 @@ function init()
 	let tree = travel(topology.polygons[0].edges[0], net);
 
 	let flattenedPolygons = {};
-	let projectedAsterisms = asterisms.map(mapAsterism).map(asterism => ({name: asterism.name, segments: asterism.segments.reduce((map, lines) => {
-		lines.forEach(line => {
-			if (!map[line.polygon]) map[line.polygon] = [];
-			map[line.polygon].push(...line.edge);
-		});
-		return map;
-	}, {})}));
+	let projectedAsterisms = asterisms
+		.filter(a => a.stars.length > 4)
+		.filter(a => Math.max(
+			...Object.keys(a.starCounts)
+				.map(id => a.starCounts[id])
+			) > 3)
+		.map(mapAsterism)
+		.map(asterism => ({name: asterism.name, segments: asterism.segments.reduce((map, lines) => {
+			lines.forEach(line => {
+				if (!map[line.polygon]) map[line.polygon] = [];
+				map[line.polygon].push(...line.edge);
+			});
+			return map;
+		}, {})}));
+
+	console.log('known asterisms', asterisms.length);
+	console.log('projected asterisms', projectedAsterisms.length);
 
 	function build(tree, parent=null) {
 		let node = tree.node,
@@ -254,7 +269,7 @@ function init()
 	let list = document.createElement('ul');
 	list.setAttribute('id', 'asterisms');
 	document.body.appendChild(list);
-	asterisms.forEach(({name}) => {
+	projectedAsterisms.forEach(({name}) => {
 		let node = document.createElement('li');
 		node.innerText = name;
 		list.appendChild(node);
