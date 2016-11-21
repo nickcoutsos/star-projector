@@ -2,7 +2,7 @@ import debounce from 'debounce';
 import hull from 'convexhull-js';
 
 // geometry
-import {BoxGeometry, DodecahedronGeometry, IcosahedronGeometry, TetrahedronGeometry, OctahedronGeometry} from 'three';
+import {DodecahedronGeometry} from 'three';
 import {Mesh, Geometry, LineSegments, Points} from 'three';
 
 // core
@@ -10,12 +10,11 @@ import {Object3D, Scene, WebGLRenderer} from 'three';
 import {PerspectiveCamera} from 'three';
 
 // math
-import {Matrix4, Plane, Ray, Vector3} from 'three';
+import {Matrix4, Vector3} from 'three';
 
 // material
-import {Color, MeshBasicMaterial, LineBasicMaterial, PointsMaterial, DoubleSide} from 'three';
+import {MeshBasicMaterial, LineBasicMaterial, PointsMaterial, DoubleSide} from 'three';
 
-import {intersectPolygons, rayFromAngles} from './stuff';
 import {OrbitControls} from './OrbitControls';
 // import bsc from './catalogs/bsc_filtered.json';
 import catalog from './catalogs/hd_filtered.json';
