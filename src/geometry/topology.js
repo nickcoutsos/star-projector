@@ -1,4 +1,4 @@
-import {Plane, Ray, Triangle, Vector3} from 'three';
+import {Box3, Plane, Ray, Triangle, Vector3} from 'three';
 
 const CYCLE = (array, index) => array[(array.length + index) % array.length];
 const EDGE_ID = pair => pair.slice().sort((a, b) => a - b).join('-');
@@ -26,6 +26,8 @@ export function getTopology(geometry) {
   polygons.forEach(p => {
     p.center = p.vertices.map(n => vertices[n]).reduce((a, b) => new Vector3().addVectors(a, b)).divideScalar(p.vertices.length);
     p.vertices = orderPolygonVertices(p.normal, p.vertices, vertices);
+    p.boundingBox = new Box3().setFromPoints(p.vertices.map(n => vertices[n]));
+
     p.edges = p.vertices.map((v, i, indices) => ({
       index: i,
       id: EDGE_ID([v, CYCLE(indices, i+1)]),
@@ -180,9 +182,35 @@ export function travel(source, next) {
 }
 
 
+/**
+ * Test for a point's presence in a polygon.
+ *
+ * This includes testing for the point's presence in one of the polygon's
+ * face(s) after already verifying the point's presence in the polyon's bounding
+ * box. It's probably also worthwhile to test that the point is coplanar before
+ * using Triangle.pointInPolygon but this seems to work so far.
+ *
+ * @param {Vector3} point
+ * @param {Object} topology
+ * @returns {Boolean}
+ */
+export function pointInPolygon(point, {boundingBox, faces}) {
+  return boundingBox.containsPoint(point)
+    && faces.some(
+      ({vertices}) => new Triangle(...vertices).containsPoint(point)
+    );
+}
 
-function pointInPolygon(point, {faces}) {
-  return faces.some(({vertices}) => new Triangle(...vertices).containsPoint(point));
+
+/**
+ * Find which polygon in the given topolyg contains the given point.
+ *
+ * @param {Object} topology
+ * @param {Vector3} point
+ * @returns {Object} polygon
+ */
+export function findContainingPolygon(topology, point) {
+  return topology.polygons.find(polygon => pointInPolygon(point, polygon));
 }
 
 
@@ -213,27 +241,26 @@ export function projectVector(vector, topology) {
  * TODO: Handle situations in which the points are not in adjacent polygons and
  * additional line segments are needed to span the distance.
  *
- * @param {Object} a
- * @param {Object} a.polygon
- * @param {Vector3} a.point
- * @param {Object} b
- * @param {Object} b.polygon
- * @param {Vector3} b.point
+ * @param {Vector3} a
+ * @param {Vector3} b
  * @returns {Array<Object>} segments - an array of one or more line segments
  *  described as {polygon, edge} where `edge` is an array of two points and
  *  `polygon` is the index of the polygon in `topology` on which they lie.
  */
-export function projectLineSegment(a, b) {
+export function projectLineSegment(topology, a, b) {
+  let polygonA = findContainingPolygon(topology, a),
+    polygonB = findContainingPolygon(topology, b);
+
   // If both points are on the same polygon a straight line can connect them.
-  if (a.polygon.index === b.polygon.index) {
-    return [{polygon: a.polygon.index, edge: [a.point, b.point]}];
+  if (polygonA === polygonB) {
+    return [{polygon: polygonA.index, edge: [a, b]}];
   }
 
   // If the points lie in adjacent polygons we use them with the origin to
   // describe a plane, and find the intersection of this plane with the common
   // edge of the adjacent polygons.
-  let coplanar = new Plane(new Vector3().crossVectors(a.point, b.point), 0),
-    common = a.polygon.edges.find(e => e.shared.poly.index == b.polygon.index);
+  let coplanar = new Plane(new Vector3().crossVectors(a, b), 0),
+    common = polygonA.edges.find(e => e.shared.poly.index == polygonB.index);
 
   if (!common) {
     console.warn('Points are not in adjacent polygons of the given topology');
@@ -242,7 +269,7 @@ export function projectLineSegment(a, b) {
 
   let connection = new Ray(common.point, common.vector.clone()).intersectPlane(coplanar);
   return [
-    {polygon: a.polygon.index, edge: [a.point, connection]},
-    {polygon: b.polygon.index, edge: [b.point, connection]}
+    {polygon: polygonA.index, edge: [a, connection]},
+    {polygon: polygonB.index, edge: [b, connection]}
   ];
 }

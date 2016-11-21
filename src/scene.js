@@ -78,7 +78,8 @@ function mapAsterism(asterism) {
 				.reduce(PAIR, [[]])
 				.map(pair =>
 					projectLineSegment(
-						...pair.map(id => stars.find(s => s.xno === id))
+						topology,
+						...pair.map(id => stars.find(s => s.xno === id).point)
 					)
 				)
 		}
