@@ -1,5 +1,6 @@
 import {Box3, Line3, Plane, Ray, Triangle, Vector3} from 'three';
 
+const EPSILON = 0.000001;
 const CYCLE = (array, index) => array[(array.length + index) % array.length];
 const EDGE_ID = pair => pair.slice().sort((a, b) => a - b).join('-');
 
@@ -81,7 +82,7 @@ export function getTopology(geometry) {
  */
 export function collectPlanarPolygons(geometry) {
   return geometry.faces.reduce((polygons, face) => {
-    let polygon = polygons.find(polygon => polygon.normal.angleTo(face.normal) < 0.01);
+    let polygon = polygons.find(polygon => polygon.normal.angleTo(face.normal) < EPSILON);
     if (!polygon) polygons.push(polygon = {
       index: polygons.length,
       normal: face.normal.clone(),
@@ -119,7 +120,7 @@ export function orderPolygonVertices(normal, indices, vertices) {
     let angle = p.vector.angleTo(points[0].vector),
       cross = new Vector3().crossVectors(points[0].vector, p.vector);
 
-    if (cross.angleTo(normal) > 0.01) angle = 2*Math.PI - angle;
+    if (cross.angleTo(normal) > EPSILON) angle = 2*Math.PI - angle;
     p.angle = angle;
   });
 
@@ -187,19 +188,19 @@ export function travel(source, next) {
  * Test for a point's presence in a polygon.
  *
  * This includes testing for the point's presence in one of the polygon's
- * face(s) after already verifying the point's presence in the polyon's bounding
- * box. It's probably also worthwhile to test that the point is coplanar before
- * using Triangle.pointInPolygon but this seems to work so far.
+ * face(s) after already verifying the point is coplanar with the polygon.
  *
  * @param {Vector3} point
  * @param {Object} topology
  * @returns {Boolean}
  */
-export function pointInPolygon(point, {boundingBox, faces}) {
-  return boundingBox.containsPoint(point)
-    && faces.some(
+export function pointInPolygon(point, {plane, faces}) {
+  return (
+    Math.abs(plane.distanceToPoint(point)) < EPSILON &&
+    faces.some(
       ({vertices}) => new Triangle(...vertices).containsPoint(point)
-    );
+    )
+  );
 }
 
 
@@ -275,12 +276,12 @@ export function projectLineSegment(topology, a, b) {
   let intersections = topology.edges
     .reduce((intersections, edge) => {
       let point = coplane.intersectLine(edge.line);
-      if (point
-          && coplane.normal.angleTo(new Vector3().crossVectors(a, point)) < 0.01
-          && coplane.normal.angleTo(new Vector3().crossVectors(point, b)) < 0.01
+      if (point &&
+          coplane.normal.angleTo(new Vector3().crossVectors(a, point)) < EPSILON &&
+          coplane.normal.angleTo(new Vector3().crossVectors(point, b)) < EPSILON
         ) {
-          intersections.push(({edge, point}));
-        }
+        intersections.push(({edge, point}));
+      }
 
       return intersections;
     }, []);
