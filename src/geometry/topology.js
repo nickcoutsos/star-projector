@@ -1,4 +1,4 @@
-import {Box3, Plane, Ray, Triangle, Vector3} from 'three';
+import {Box3, Line3, Plane, Ray, Triangle, Vector3} from 'three';
 
 const CYCLE = (array, index) => array[(array.length + index) % array.length];
 const EDGE_ID = pair => pair.slice().sort((a, b) => a - b).join('-');
@@ -32,6 +32,7 @@ export function getTopology(geometry) {
       index: i,
       id: EDGE_ID([v, CYCLE(indices, i+1)]),
       point: vertices[v].clone(),
+      line: new Line3(vertices[v], vertices[CYCLE(indices, i+1)]),
       vector: new Vector3().subVectors(
         vertices[CYCLE(indices, i+1)],
         vertices[v]
@@ -51,7 +52,7 @@ export function getTopology(geometry) {
       index[edge.id].push(edge);
     });
     return index;
-  });
+  }, {});
 
   polygons.forEach(polygon => {
     polygon.edges
@@ -62,11 +63,11 @@ export function getTopology(geometry) {
       });
   });
 
-
   return {
     vertices: vertices.slice(),
     dihedral: polygons[0].normal.angleTo(polygons[0].edges[0].shared.poly.normal),
     faceRadius: polygons[0].center.length(),
+    edges: Object.keys(edgeIndex).map(k => edgeIndex[k][0]),
     polygons
   };
 }
@@ -238,9 +239,6 @@ export function projectVector(vector, topology) {
  * This function serves to handle situations involving points that lie on
  * separate polygons and must be connected with multiple line segments.
  *
- * TODO: Handle situations in which the points are not in adjacent polygons and
- * additional line segments are needed to span the distance.
- *
  * @param {Vector3} a
  * @param {Vector3} b
  * @returns {Array<Object>} segments - an array of one or more line segments
@@ -259,17 +257,51 @@ export function projectLineSegment(topology, a, b) {
   // If the points lie in adjacent polygons we use them with the origin to
   // describe a plane, and find the intersection of this plane with the common
   // edge of the adjacent polygons.
-  let coplanar = new Plane(new Vector3().crossVectors(a, b), 0),
+  let coplane = new Plane(new Vector3().crossVectors(a, b), 0),
     common = polygonA.edges.find(e => e.shared.poly.index == polygonB.index);
 
-  if (!common) {
-    console.warn('Points are not in adjacent polygons of the given topology');
-    return [];
+  if (common) {
+    let connection = new Ray(common.point, common.vector.clone()).intersectPlane(coplane);
+    return [
+      {polygon: polygonA.index, edge: [a, connection]},
+      {polygon: polygonB.index, edge: [b, connection]}
+    ];
   }
 
-  let connection = new Ray(common.point, common.vector.clone()).intersectPlane(coplanar);
-  return [
-    {polygon: polygonA.index, edge: [a, connection]},
-    {polygon: polygonB.index, edge: [b, connection]}
-  ];
+  // Find all point intersection between the topology's edges and the plane
+  // defined by points `a`, `b`, and the origin excluding those which lie
+  // outside of the arc of `a` and `b` (AxB should approximately equal AxP and
+  // PxB for every P in the set of points found in the initial step.)
+  let intersections = topology.edges
+    .reduce((intersections, edge) => {
+      let point = coplane.intersectLine(edge.line);
+      if (point
+          && coplane.normal.angleTo(new Vector3().crossVectors(a, point)) < 0.01
+          && coplane.normal.angleTo(new Vector3().crossVectors(point, b)) < 0.01
+        ) {
+          intersections.push(({edge, point}));
+        }
+
+      return intersections;
+    }, []);
+
+  // Sort points by their angular distance to the edge closest to `a`.
+  let start = intersections.find(({edge}) => polygonA.edges.find(({id}) => edge.id === id));
+  intersections.forEach(intersection => intersection.angle = intersection.point.angleTo(start.point));
+  intersections.sort((a, b) => a.angle - b.angle);
+
+  // each intersection contains one point of a pair of line segments
+  let polygon = intersections[0].edge.poly.index;
+  if (polygon === polygonA.index) polygon = intersections[0].edge.shared.poly.index;
+  let segments = [ {polygon: polygonA.index, edge: [a, intersections[0].point]} ];
+
+  intersections.slice(0, -1).forEach(({edge, point}, i) => {
+    let next = intersections[i + 1];
+    segments.push({ polygon, edge: [point, next.point] });
+
+    polygon = next.edge.poly.index === polygon ? next.edge.shared.poly.index : next.edge.poly.index;
+  });
+
+  segments.push({ polygon: polygonB.index, edge: [segments[segments.length-1].edge[1], b] });
+  return segments;
 }
