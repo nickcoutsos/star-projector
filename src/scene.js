@@ -10,7 +10,7 @@ import {Object3D, Scene, WebGLRenderer} from 'three';
 import {PerspectiveCamera} from 'three';
 
 // math
-import {Matrix4, Vector3} from 'three';
+import {Box2, Matrix4, Vector3} from 'three';
 
 // material
 import {MeshBasicMaterial, LineBasicMaterial, PointsMaterial, DoubleSide} from 'three';
@@ -216,20 +216,7 @@ function init()
 	let edgeCuts = [].concat(...Object.keys(flattenedPolygons).map(i => flattenedPolygons[i]).map(p => p.edgeCuts.map(e => e.map(v => v.clone().applyMatrix4(p.matrix))))),
 		edgeFolds = Object.keys(flattenedPolygons).map(i => flattenedPolygons[i]).map(p => p.edgeFold.map(v => v.clone().applyMatrix4(p.matrix))).filter(n => n.length),
 		asterismLines = projectedAsterisms.map(({name, segments}) => ({name, lines: [].concat(...Object.keys(segments).map(p => segments[p].map(v => v.clone().applyMatrix4(flattenedPolygons[p].matrix))))})),
-		boundingBox = edgeCuts.reduce(({min, max}, edge) => {
-			return{
-				min: {x: Math.min(min.x, ...edge.map(p => p.x)), y: Math.min(min.y, ...edge.map(p => p.y))},
-				max: {x: Math.max(max.x, ...edge.map(p => p.x)), y: Math.max(max.y, ...edge.map(p => p.y))}
-			};
-		}
-		, {
-			min: {x: Infinity, y: Infinity},
-			max: {x: -Infinity, y: -Infinity}
-		});
-
-	boundingBox.min = new Vector3(boundingBox.min.x, boundingBox.min.y, 0);
-	boundingBox.max = new Vector3(boundingBox.max.x, boundingBox.max.y, 0);
-	boundingBox.range = new Vector3().subVectors(boundingBox.max, boundingBox.min);
+		boundingBox = new Box2().setFromPoints([].concat(...edgeCuts));
 
 	document.body.appendChild(
 		svg.element('svg', {
@@ -237,7 +224,7 @@ function init()
 			preserveAspectRatio: 'none',
 			viewBox: [
 				boundingBox.min.x, boundingBox.min.y,
-				boundingBox.range.x, boundingBox.range.y
+				boundingBox.getSize().x, boundingBox.getSize().y
 			].join(' ')
 		}, [
 			svg.element('g', {stroke: 'red', 'stroke-width': 0.15},
