@@ -31,18 +31,10 @@ asterisms.forEach(asterism => {
 
 let connectedStars = new Set([].concat(...asterisms.map(a => a.stars)));
 
-const BACK = new Vector3(0,0,-1);
 var scene, renderer, camera;
 var controls;
-var root;
-// var d12 = new TetrahedronGeometry(10);
-// var d12 = new BoxGeometry(10, 10, 10);
-// var d12 = new OctahedronGeometry(10);
-var d12 = new DodecahedronGeometry(10);
-// var d12 = new IcosahedronGeometry(10);
 
-
-var topology = getTopology(d12);
+var topology = getTopology(new DodecahedronGeometry(10));
 
 let pointMeshes = topology.polygons.map(() => Object.assign(new Geometry(), {vertices: []}));
 
@@ -108,8 +100,7 @@ function init()
 	camera.lookAt (new Vector3(0,0,0));
   controls = new OrbitControls (camera, renderer.domElement);
 
-	let net = getGeometryNet(topology);
-	let tree = travel(topology.polygons[0].edges[0], net);
+	let tree = travel(topology.polygons[0].edges[0], getGeometryNet(topology));
 
 	let flattenedPolygons = {};
 	let projectedAsterisms = asterisms
@@ -181,16 +172,19 @@ function init()
 		);
 	}
 
-	root = build(tree);
+	let root = build(tree);
 	root.rotation.set(0,0,0);
 	root.userData.animate = t => {
 		let alpha = 0.5 * (Math.sin(-Math.PI / 2 + t / 1000) + 1);
 		root.position.z = (1 - alpha) * -topology.faceRadius;
 	}
 
+	// rotate "top" face to point away from camera so that it appears to unfold
+	// into a two dimensional image from the viewer's perspective.
+	let back = new Vector3(0, 0, -1);
 	let top = tree.node.poly,
-		angle = top.normal.angleTo(BACK),
-		cross = new Vector3().crossVectors(top.normal, BACK).normalize(),
+		angle = top.normal.angleTo(back),
+		cross = new Vector3().crossVectors(top.normal, back).normalize(),
 		rotation = new Matrix4().makeRotationAxis(cross, angle);
 
 	root.applyMatrix(rotation);
@@ -216,8 +210,6 @@ function init()
 	root.applyMatrix(new Matrix4().makeRotationAxis(new Vector3(0, 0, 1), -aaRotation));
 	root.updateMatrixWorld();
 	root.position.add(top.edges[0].point.clone().applyMatrix4(root.matrixWorld));
-
-	console.log(root);
 
 	scene.add(root);
 
@@ -288,7 +280,7 @@ function init()
 
 	list.addEventListener('mouseover', e => {
 		let target = e.target.innerText;
-		root.traverse(node => {
+		scene.traverse(node => {
 			if (!node.userData.asterism) return;
 			node.material = node.userData.asterism === target
 				? new LineBasicMaterial({color: 0xffff00})
@@ -305,7 +297,7 @@ function init()
 	list.addEventListener('click', e => {
 		let target = e.target.innerText;
 		e.target.classList.toggle('disabled');
-		root.traverse(node => {
+		scene.traverse(node => {
 			if (node.userData.asterism !== target) return;
 			node.visible = !e.target.classList.contains('disabled');
 			document.querySelector(`svg g[id="${target}-lines"]`).setAttribute(
