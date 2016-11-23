@@ -143,6 +143,13 @@ function init()
 		offsetNode.userData.polygon = node.poly.index;
 
 		object.userData.pivot = node.edge.vector;
+		object.userData.animate = t => {
+			let alpha = 0.5 * (Math.sin(-Math.PI / 2 + t / 1000) + 1);
+			let angle = alpha * topology.dihedral;
+			object.rotation.set(0, 0, 0);
+			object.rotateOnAxis(object.userData.pivot, angle);
+		}
+
 		object.rotateOnAxis(node.edge.vector, topology.dihedral);
 		object.position.sub(parent ? parent.edge.point : new Vector3()).add(node.edge.point);
 
@@ -176,6 +183,10 @@ function init()
 
 	root = build(tree);
 	root.rotation.set(0,0,0);
+	root.userData.animate = t => {
+		let alpha = 0.5 * (Math.sin(-Math.PI / 2 + t / 1000) + 1);
+		root.position.z = (1 - alpha) * -topology.faceRadius;
+	}
 
 	let top = tree.node.poly,
 		angle = top.normal.angleTo(BACK),
@@ -320,18 +331,12 @@ function onWindowResize ()
 let animate;
 
 function render() {
-	let alpha = 0.5 * (Math.sin(-Math.PI / 2 + scene.userData.time / 1000) + 1);
-	let angle = alpha * topology.dihedral;
-
-	root.position.z = (1 - alpha) * -topology.faceRadius;
-	root.traverse(node => {
-		if (node === root) return;
-		if (!node.userData.pivot) return;
-		node.rotation.set(0, 0, 0);
-		node.rotateOnAxis(node.userData.pivot, angle);
+	scene.traverse(node => {
+		if (typeof node.userData.animate !== 'function') return;
+		node.userData.animate(scene.userData.time);
 	});
 
-	renderer.render (scene, camera);
+	renderer.render(scene, camera);
 
 	if (scene.userData.animate) {
 		scene.userData.time += 16;
