@@ -78,10 +78,27 @@ function mapAsterism(asterism) {
 	);
 }
 
-init();
-render();
 
-function init()
+let animate;
+
+export function render() {
+	scene.traverse(node => {
+		if (typeof node.userData.animate !== 'function') return;
+		node.userData.animate(scene.userData.time);
+	});
+
+	renderer.render(scene, camera);
+
+	if (scene.userData.animate) {
+		scene.userData.time += 16;
+		requestAnimationFrame (animate);
+	}
+}
+
+animate = debounce(render, 16);
+
+
+export function init()
 {
 	renderer = new WebGLRenderer( {antialias:true} );
 	var width = window.innerWidth;
@@ -296,6 +313,12 @@ function init()
 	});
 
 	window.addEventListener ('resize', onWindowResize, false);
+	controls.addEventListener('change', animate);
+
+	renderer.domElement.addEventListener('click', () => {
+		scene.userData.animate = !scene.userData.animate;
+		scene.userData.animate && animate();
+	});
 }
 
 
@@ -306,27 +329,3 @@ function onWindowResize ()
 	renderer.setSize (window.innerWidth, window.innerHeight);
   renderer.render(scene, camera);
 }
-
-let animate;
-
-function render() {
-	scene.traverse(node => {
-		if (typeof node.userData.animate !== 'function') return;
-		node.userData.animate(scene.userData.time);
-	});
-
-	renderer.render(scene, camera);
-
-	if (scene.userData.animate) {
-		scene.userData.time += 16;
-		requestAnimationFrame (animate);
-	}
-}
-
-animate = debounce(render, 16);
-controls.addEventListener('change', animate);
-
-renderer.domElement.addEventListener('click', () => {
-	scene.userData.animate = !scene.userData.animate;
-	scene.userData.animate && animate();
-});
