@@ -8,6 +8,17 @@ import starCatalog from './catalogs/hd_filtered.json';
 import asterismsCatalog from './catalogs/asterisms.json';
 
 
+function o(constructor, props, children=[]) {
+  let node = Object.assign(new constructor, props);
+
+  children = [].concat(children);
+  if (children.length) {
+    node.add(...children);
+  }
+
+  return node;
+}
+
 function vectorFromAngles(theta, phi) {
 	return new three.Vector3(
 		Math.sin(phi) * Math.sin(theta),
@@ -60,6 +71,7 @@ let stars = starCatalog
 /// select mesh geometry;
 let topology = getTopology(new three.DodecahedronGeometry(10));
 let hierarchicalMesh = constructHierarchicalMesh(topology);
+let objectByPolygon = {};
 
 /// before getting started, fill in some containers for each polygon in the
 /// hierarchical mesh.
@@ -67,87 +79,100 @@ hierarchicalMesh.traverse(obj => {
   let node = obj.userData.node;
   if (!node) return;
 
-  obj.add(
-    Object.assign(new three.Points(new three.Geometry()), {name: 'stars'}),
-    Object.assign(new three.Object3D(), {name: 'asterisms'}),
-    new three.Mesh(
-      Object.assign(
-        new three.Geometry(),
-        {vertices: topology.vertices.slice(), faces: node.poly.faces.slice()}
-      )
-    )
-  );
+  // now for anything related to a polygon we can lookup the matrix transform
+  objectByPolygon[node.poly.index] = obj;
 });
 
 /// project stars onto topology
-stars
-  .forEach(({sra0, sdec0}) => {
-    let {polygon, point} = projectVector(vectorFromAngles(sra0, sdec0), topology);
-    let mesh = hierarchicalMesh
-      .getObjectByName(`polygon-${polygon.index}`)
-      .getObjectByName('stars');
+let projectedStars = stars.map(star => {
+  let {sra0, sdec0} = star;
+  let {polygon, point} = projectVector(vectorFromAngles(sra0, sdec0), topology);
 
-    mesh.geometry.vertices.push(point);
-  });
-
-/// project asterism lines onto topology
-asterisms.forEach(asterism => {
-  let pairs = asterism.stars.map(id => stars.find(s => s.xno === id)).reduce(PAIR, [[]]);
-  let segments = pairs.map(pair =>
-    projectLineSegment(
-      topology,
-      ...pair.map(
-        ({sra0, sdec0}) => projectVector(vectorFromAngles(sra0, sdec0), topology).point
-      )
-    )
-  );
-
-  let edgesByPolygon = [].concat(...segments)
-    .reduce((map, {polygon, edge}) => {
-      if (!map[polygon]) map[polygon] = [];
-      map[polygon].push(edge);
-      return map;
-    }, {});
-
-  Object.keys(edgesByPolygon).forEach(polygon => {
-    let vertices = [].concat(...edgesByPolygon[polygon]);
-    let asterisms = hierarchicalMesh
-      .getObjectByName(`polygon-${polygon}`)
-      .getObjectByName('asterisms');
-
-    asterisms.add(
-      Object.assign(
-        new three.LineSegments(Object.assign(new three.Geometry(), {vertices})),
-        {name: `asterism-${asterism.name}`, userData: {type: 'asterism', asterism}}
-      )
-    );
-  });
+  return {star, polygon, point};
 });
 
+/// project asterism lines onto topology
+let projectedAsterisms = [].concat(...asterisms.map(asterism => {
+  let pairs = asterism.stars.map(id => projectedStars.find(s => s.star.xno === id)).reduce(PAIR, [[]]);
+  return [].concat(
+    ...pairs.map(pair =>
+      projectLineSegment(
+        topology,
+        ...pair.map(({point}) => point)
+      )
+    )
+  ).map(
+    segment => Object.assign({asterism}, segment)
+  );
+}));
+
+
 /// Project edge and cut lines
-hierarchicalMesh.traverse(obj => {
-  if (!obj.userData.node) return;
-  let node = obj.userData.node,
+let projectedEdges = topology.polygons.map(polygon => {
+  let obj = objectByPolygon[polygon.index],
+    node = obj.userData.node,
     parent = obj.userData.parent,
     children = obj.userData.children;
 
-  const edgePoints = e => e.id.split('-').map(n => topology.vertices[Number(n)].clone());
-  let cutEdges = node.poly.edges
-      .filter(e => (!parent || e.shared.poly !== parent.poly) && children.every(c => c.node.edge.id !== e.id))
-      .map(edgePoints);
+  let fold = parent && node.edge.id.split('-').map(n => topology.vertices[Number(n)].clone());
+  let cuts = node.poly.edges
+    .filter(e => (
+      (!parent || e.shared.poly !== parent.poly)
+      && children.every(c => c.node.edge.id !== e.id)
+    ))
+    .map(e =>
+      e.id.split('-')
+        .map(n => topology.vertices[Number(n)].clone())
+    );
+
+  return {polygon, fold, cuts};
+});
+
+
+hierarchicalMesh.traverse(obj => {
+  let polygon = obj.userData.node && obj.userData.node.poly;
+  if (!polygon) return;
+
+  let stars = projectedStars.filter(s => s.polygon === polygon),
+    {fold, cuts} = projectedEdges.find(e => e.polygon === polygon),
+    asterisms = projectedAsterisms
+      .filter(a => a.polygon === polygon.index)
+      .reduce((map, {asterism, edge}) => {
+        if (!map[asterism.name]) map[asterism.name] = [];
+        map[asterism.name].push(edge);
+        return map;
+      }, {});
 
   obj.add(
-    parent && Object.assign(
-      new three.LineSegments(
-        Object.assign(new three.Geometry(), {vertices: edgePoints(node.edge)})
-      ),
-      {userData: {type: 'fold'}}
+    o(three.Points, {name: 'stars', geometry: o(three.Geometry, {vertices: stars.map(s => s.point)})}),
+    o(three.Mesh, {geometry: o(three.Geometry, {vertices: topology.vertices.slice(), faces: polygon.faces.slice()})}),
+    o(
+      three.Object3D,
+      {name: 'asterisms'},
+      Object.keys(asterisms).map(name =>
+        o(
+          three.LineSegments,
+          {
+            name: `asterism-${name}`,
+            userData: {asterism: {name}, type: 'asterism'},
+            geometry: o(three.Geometry, {vertices: [].concat(...asterisms[name])})
+          }
+        )
+      )
     ),
-    Object.assign(
-      new three.LineSegments(
-        Object.assign(new three.Geometry(), {vertices: [].concat(...cutEdges)})
-      ),
-      {userData: {type: 'cuts'}}
+    fold && o(
+      three.LineSegments,
+      {
+        userData: {type: 'fold'},
+        geometry: o(three.Geometry, {vertices: fold})
+      }
+    ),
+    o(
+      three.LineSegments,
+      {
+        userData: {type: 'cuts'},
+        geometry: o(three.Geometry, {vertices: [].concat(...cuts)})
+      }
     )
   );
 });
