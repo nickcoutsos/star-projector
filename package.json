@@ -28,7 +28,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "webpack-dev-server -d --port=8080 --host=0.0.0.0",
-    "build": "mkdir -p build/assets && webpack && cp -r src/index.html src/assets build/"
+    "build": "mkdir -p build/assets && webpack --optimize-minimize && cp -r src/index.html src/assets build/"
   },
   "author": "",
   "license": "ISC"
