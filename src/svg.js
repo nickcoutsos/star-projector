@@ -30,7 +30,7 @@ export function drawSVG(matrices, stars, asterisms, edges) {
   stars = stars.map(
     ({star, polygon, point}) =>
     Object.assign(
-      {radius: Math.max(0.1, (1 - star.mag / 7)) * 0.25 + .1},
+      {radius: Math.max(0.1, (1 - star.magnitude / 7)) * 0.25 + .1},
       point.clone().applyMatrix4(matrices[polygon.index].matrixWorld)
     )
   );

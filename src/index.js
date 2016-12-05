@@ -6,9 +6,7 @@ import {drawSVG} from './svg';
 
 import {getTopology, projectVector, projectLineSegment} from './geometry/topology';
 import {constructHierarchicalMesh} from './geometry/hierarchical-mesh';
-
-import starCatalog from './catalogs/hd_filtered.json';
-import asterismsCatalog from './catalogs/asterisms.json';
+import * as catalogs from './catalogs';
 
 
 function o(constructor, props, children=[]) {
@@ -47,196 +45,196 @@ let materials = {
 };
 
 
-/// filter stars and asterisms because there's plenty of stuff we don't care for
+function main(polyhedron, stars, asterisms) {
+  /// select mesh geometry;
+  let topology = getTopology(polyhedron);
+  let hierarchicalMesh = constructHierarchicalMesh(topology);
+  let objectByPolygon = {};
 
-// Count the number of lines connecting each star of each asterism. This is an
-// imperfect but useful way to determine which asterisms are visually boring.
-// Filter: asterisms with 4 or fewer stars
-// Filter: asterisms where no stars are connected to more than 3 other stars.
-let asterisms = asterismsCatalog
-  .map(asterism => Object.assign(asterism, {starCounts: [].concat(...asterism.stars).reduce((index, id) => (index[id] = (index[id] || 0) + 1, index), {})}))
-  .filter(a => a.stars.length > 4)
-  .filter(a => Math.max(
-    ...Object.keys(a.starCounts)
-      .map(id => a.starCounts[id])
-    ) > 3);
+  /// before getting started, fill in some containers for each polygon in the
+  /// hierarchical mesh.
+  hierarchicalMesh.traverse(obj => {
+    let node = obj.userData.node;
+    if (!node) return;
 
-// Of the remaining asterisms get a set represending the related stars by their
-// henry draper catalog id number.
-let connectedStars = new Set([].concat(...asterisms.map(a => a.stars)));
+    // now for anything related to a polygon we can lookup the matrix transform
+    objectByPolygon[node.poly.index] = obj;
+  });
 
-// Filter stars to those with magnitude <= 7 OR which are present in an asterism
-let stars = starCatalog
-  .filter(star => star.mag <= 7 || connectedStars.has(star.hd))
-  .map(s => ({xno: s.hd, sdec0: s.decrad - Math.PI/2, sra0: s.rarad, mag: s.mag}));
+  /// project stars onto topology
+  let projectedStars = stars.map(star => {
+    let {rightAscension, declination} = star;
+    let {polygon, point} = projectVector(
+      vectorFromAngles(rightAscension, declination),
+      topology
+    );
 
+    return {star, polygon, point};
+  });
 
-/// select mesh geometry;
-let topology = getTopology(new three.DodecahedronGeometry(10));
-let hierarchicalMesh = constructHierarchicalMesh(topology);
-let objectByPolygon = {};
-
-/// before getting started, fill in some containers for each polygon in the
-/// hierarchical mesh.
-hierarchicalMesh.traverse(obj => {
-  let node = obj.userData.node;
-  if (!node) return;
-
-  // now for anything related to a polygon we can lookup the matrix transform
-  objectByPolygon[node.poly.index] = obj;
-});
-
-/// project stars onto topology
-let projectedStars = stars.map(star => {
-  let {sra0, sdec0} = star;
-  let {polygon, point} = projectVector(vectorFromAngles(sra0, sdec0), topology);
-
-  return {star, polygon, point};
-});
-
-/// project asterism lines onto topology
-let projectedAsterisms = [].concat(...asterisms.map(asterism => {
-  let pairs = asterism.stars.map(id => projectedStars.find(s => s.star.xno === id)).reduce(PAIR, [[]]);
-  return [].concat(
-    ...pairs.map(pair =>
-      projectLineSegment(
-        topology,
-        ...pair.map(({point}) => point)
-      )
-    )
-  ).map(
-    segment => Object.assign({asterism}, segment)
-  );
-}));
-
-
-/// Project edge and cut lines
-let projectedEdges = topology.polygons.map(polygon => {
-  let obj = objectByPolygon[polygon.index],
-    node = obj.userData.node,
-    parent = obj.userData.parent,
-    children = obj.userData.children;
-
-  let fold = parent && [node.edge.line.start, node.edge.line.end];
-  let cuts = node.poly.edges
-    .filter(e => (
-      (!parent || e.shared.poly !== parent.poly)
-      && children.every(c => c.node.edge.id !== e.id)
-    ))
-    .map(({line}) => ([line.start, line.end]));
-
-  return {polygon, fold, cuts};
-});
-
-
-hierarchicalMesh.traverse(obj => {
-  let polygon = obj.userData.node && obj.userData.node.poly;
-  if (!polygon) return;
-
-  let stars = projectedStars.filter(s => s.polygon === polygon),
-    {fold, cuts} = projectedEdges.find(e => e.polygon === polygon),
-    asterisms = projectedAsterisms
-      .filter(a => a.polygon === polygon.index)
-      .reduce((map, {asterism, edge}) => {
-        if (!map[asterism.name]) map[asterism.name] = [];
-        map[asterism.name].push(edge);
-        return map;
-      }, {});
-
-  obj.add(
-    o(three.Points, {name: 'stars', geometry: o(three.Geometry, {vertices: stars.map(s => s.point)})}),
-    o(three.Mesh, {geometry: o(three.Geometry, {vertices: polygon.vertices.slice(), faces: polygon.triangles.map(({a, b, c}) => new three.Face3(...[a,b,c].map(v => polygon.vertices.indexOf(v))))})}),
-    o(
-      three.Object3D,
-      {name: 'asterisms'},
-      Object.keys(asterisms).map(name =>
-        o(
-          three.LineSegments,
-          {
-            name: `asterism-${name}`,
-            userData: {asterism: {name}, type: 'asterism'},
-            geometry: o(three.Geometry, {vertices: [].concat(...asterisms[name])})
-          }
+  /// project asterism lines onto topology
+  let projectedAsterisms = [].concat(...asterisms.map(asterism => {
+    let pairs = asterism.stars.map(id => projectedStars.find(s => s.star.id === id)).reduce(PAIR, [[]]);
+    return [].concat(
+      ...pairs.map(pair =>
+        projectLineSegment(
+          topology,
+          ...pair.map(({point}) => point)
         )
       )
-    ),
-    fold && o(
-      three.LineSegments,
-      {
-        userData: {type: 'fold'},
-        geometry: o(three.Geometry, {vertices: fold})
-      }
-    ),
-    o(
-      three.LineSegments,
-      {
-        userData: {type: 'cuts'},
-        geometry: o(three.Geometry, {vertices: [].concat(...cuts)})
-      }
-    )
+    ).map(
+      segment => Object.assign({asterism}, segment)
+    );
+  }));
+
+
+  /// Project edge and cut lines
+  let projectedEdges = topology.polygons.map(polygon => {
+    let obj = objectByPolygon[polygon.index],
+      node = obj.userData.node,
+      parent = obj.userData.parent,
+      children = obj.userData.children;
+
+    let fold = parent && [node.edge.line.start, node.edge.line.end];
+    let cuts = node.poly.edges
+      .filter(e => (
+        (!parent || e.shared.poly !== parent.poly)
+        && children.every(c => c.node.edge.id !== e.id)
+      ))
+      .map(({line}) => ([line.start, line.end]));
+
+    return {polygon, fold, cuts};
+  });
+
+
+  hierarchicalMesh.traverse(obj => {
+    let polygon = obj.userData.node && obj.userData.node.poly;
+    if (!polygon) return;
+
+    let stars = projectedStars.filter(s => s.polygon === polygon),
+      {fold, cuts} = projectedEdges.find(e => e.polygon === polygon),
+      asterisms = projectedAsterisms
+        .filter(a => a.polygon === polygon.index)
+        .reduce((map, {asterism, edge}) => {
+          if (!map[asterism.name]) map[asterism.name] = [];
+          map[asterism.name].push(edge);
+          return map;
+        }, {});
+
+    obj.add(
+      o(three.Points, {name: 'stars', geometry: o(three.Geometry, {vertices: stars.map(s => s.point)})}),
+      o(three.Mesh, {geometry: o(three.Geometry, {vertices: polygon.vertices.slice(), faces: polygon.triangles.map(({a, b, c}) => new three.Face3(...[a,b,c].map(v => polygon.vertices.indexOf(v))))})}),
+      o(
+        three.Object3D,
+        {name: 'asterisms'},
+        Object.keys(asterisms).map(name =>
+          o(
+            three.LineSegments,
+            {
+              name: `asterism-${name}`,
+              userData: {asterism: {name}, type: 'asterism'},
+              geometry: o(three.Geometry, {vertices: [].concat(...asterisms[name])})
+            }
+          )
+        )
+      ),
+      fold && o(
+        three.LineSegments,
+        {
+          userData: {type: 'fold'},
+          geometry: o(three.Geometry, {vertices: fold})
+        }
+      ),
+      o(
+        three.LineSegments,
+        {
+          userData: {type: 'cuts'},
+          geometry: o(three.Geometry, {vertices: [].concat(...cuts)})
+        }
+      )
+    );
+  });
+
+
+  let back = new three.Vector3(0, 0, -1);
+  let top = hierarchicalMesh.children[0].userData.node.poly,
+    angle = top.normal.angleTo(back),
+    cross = new three.Vector3().crossVectors(top.normal, back).normalize(),
+    rotation = new three.Matrix4().makeRotationAxis(cross, angle);
+
+  hierarchicalMesh.applyMatrix(rotation);
+  hierarchicalMesh.updateMatrixWorld();
+  hierarchicalMesh.position.add(top.edges[0].point.clone().applyMatrix4(hierarchicalMesh.matrixWorld));
+  hierarchicalMesh.userData.animate = t => {
+    let alpha = 0.5 * (Math.sin(-Math.PI / 2 + t / 1000) + 1);
+    hierarchicalMesh.position.z = (1 - alpha) * -topology.faceRadius;
+  }
+
+  hierarchicalMesh.traverse(node => {
+    if (node instanceof three.LineSegments) {
+      node.geometry.computeLineDistances();
+      node.material = {
+        asterism: materials.asterismLines,
+        fold: materials.foldLines,
+        cuts: materials.cutLines
+      }[node.userData.type] || new three.LineBasicMaterial();
+    }
+    else if (node instanceof three.Points) {
+      node.material = materials.stars;
+    }
+    else if (node instanceof three.Mesh) {
+      node.material = materials.faces;
+    }
+  });
+
+  let {render} = init(hierarchicalMesh);
+  drawSVG(objectByPolygon, projectedStars, projectedAsterisms, projectedEdges);
+  createMenu(
+    asterisms,
+    hoverAsterism => {
+      hierarchicalMesh.traverse(node => {
+        if (!node.userData.asterism) return;
+        node.material = node.userData.asterism.name === hoverAsterism
+          ? materials.asterismLinesHover
+          : materials.asterismLines
+      });
+
+      render();
+    },
+    toggleAsterism => {
+      hierarchicalMesh.traverse(node => {
+        if (!node.userData.asterism || node.userData.asterism.name !== toggleAsterism) return;
+        node.visible = !node.visible;
+        document.querySelector(`svg g[id="${toggleAsterism}-lines"]`).setAttribute(
+          'stroke', node.visible ? '#660000' : 'transparent'
+        );
+      });
+
+
+      render();
+    }
   );
-});
 
 
-
-let back = new three.Vector3(0, 0, -1);
-let top = topology.polygons[0],
-  angle = top.normal.angleTo(back),
-  cross = new three.Vector3().crossVectors(top.normal, back).normalize(),
-  rotation = new three.Matrix4().makeRotationAxis(cross, angle);
-
-hierarchicalMesh.applyMatrix(rotation);
-hierarchicalMesh.updateMatrixWorld();
-hierarchicalMesh.position.add(top.edges[0].point.clone().applyMatrix4(hierarchicalMesh.matrixWorld));
-hierarchicalMesh.userData.animate = t => {
-  let alpha = 0.5 * (Math.sin(-Math.PI / 2 + t / 1000) + 1);
-  hierarchicalMesh.position.z = (1 - alpha) * -topology.faceRadius;
+  render();
 }
 
-hierarchicalMesh.traverse(node => {
-  if (node instanceof three.LineSegments) {
-    node.geometry.computeLineDistances();
-    node.material = {
-      asterism: materials.asterismLines,
-      fold: materials.foldLines,
-      cuts: materials.cutLines
-    }[node.userData.type] || new three.LineBasicMaterial();
-  }
-  else if (node instanceof three.Points) {
-    node.material = materials.stars;
-  }
-  else if (node instanceof three.Mesh) {
-    node.material = materials.faces;
-  }
+
+catalogs.loadAsterismCatalog({
+  starCounts: {$elemMatch: {count: {$gt: 3}}}
+}).then(asterisms => {
+  let connectedStars = [...new Set([].concat(...asterisms.map(a => a.stars)))];
+  return catalogs.loadStarCatalog({
+    $or: [
+      {magnitude: {$lte: 7}},
+      {id: {$in: connectedStars}}
+    ]
+  }).then(stars => {
+    console.log(`loaded ${stars.length} stars`)
+    setTimeout(() => main(new three.DodecahedronGeometry(10), stars, asterisms), 0);
+  });
+})
+.catch(err => {
+  console.error(err);
+  throw err;
 });
-
-let {render} = init(hierarchicalMesh);
-drawSVG(objectByPolygon, projectedStars, projectedAsterisms, projectedEdges);
-createMenu(
-  asterisms,
-  hoverAsterism => {
-    hierarchicalMesh.traverse(node => {
-      if (!node.userData.asterism) return;
-      node.material = node.userData.asterism.name === hoverAsterism
-        ? materials.asterismLinesHover
-        : materials.asterismLines
-    });
-
-    render();
-  },
-  toggleAsterism => {
-    hierarchicalMesh.traverse(node => {
-      if (!node.userData.asterism || node.userData.asterism.name !== toggleAsterism) return;
-      node.visible = !node.visible;
-      document.querySelector(`svg g[id="${toggleAsterism}-lines"]`).setAttribute(
-        'stroke', node.visible ? '#660000' : 'transparent'
-      );
-    });
-
-
-    render();
-  }
-);
-
-
-render();
