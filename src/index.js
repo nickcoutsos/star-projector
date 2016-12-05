@@ -1,6 +1,6 @@
 import * as three from 'three';
 
-import {init, render} from './scene';
+import {init} from './scene';
 import {createMenu} from './menu';
 import {drawSVG} from './svg';
 
@@ -213,7 +213,7 @@ hierarchicalMesh.traverse(node => {
   }
 });
 
-init(hierarchicalMesh);
+let {render} = init(hierarchicalMesh);
 drawSVG(objectByPolygon, projectedStars, projectedAsterisms, projectedEdges);
 createMenu(
   asterisms,
@@ -240,7 +240,6 @@ createMenu(
     render();
   }
 );
-
 
 
 render();
