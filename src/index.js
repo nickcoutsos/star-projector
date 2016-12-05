@@ -1,6 +1,8 @@
 import * as three from 'three';
 
 import {init, render} from './scene';
+import {createMenu} from './menu';
+
 import {getTopology, projectVector, projectLineSegment} from './geometry/topology';
 import {constructHierarchicalMesh} from './geometry/hierarchical-mesh';
 
@@ -211,4 +213,32 @@ hierarchicalMesh.traverse(node => {
 });
 
 init(hierarchicalMesh);
+createMenu(
+  asterisms,
+  hoverAsterism => {
+    hierarchicalMesh.traverse(node => {
+      if (!node.userData.asterism) return;
+      node.material = node.userData.asterism.name === hoverAsterism
+        ? materials.asterismLinesHover
+        : materials.asterismLines
+    });
+
+    render();
+  },
+  toggleAsterism => {
+    hierarchicalMesh.traverse(node => {
+      if (!node.userData.asterism || node.userData.asterism.name !== toggleAsterism) return;
+      node.visible = !node.visible;
+      document.querySelector(`svg g[id="${toggleAsterism}-lines"]`).setAttribute(
+        'stroke', node.visible ? '#660000' : 'transparent'
+      );
+    });
+
+
+    render();
+  }
+);
+
+
+
 render();
