@@ -230,49 +230,6 @@ export function init()
 
 	scene.add(root);
 
-	let edgeCuts = [].concat(...Object.keys(flattenedPolygons).map(i => flattenedPolygons[i]).map(p => p.edgeCuts.map(e => e.map(v => v.clone().applyMatrix4(p.matrix))))),
-		edgeFolds = Object.keys(flattenedPolygons).map(i => flattenedPolygons[i]).map(p => p.edgeFold.map(v => v.clone().applyMatrix4(p.matrix))).filter(n => n.length),
-		asterismLines = projectedAsterisms.map(({name, segments}) => ({name, lines: [].concat(...Object.keys(segments).map(p => segments[p].map(v => v.clone().applyMatrix4(flattenedPolygons[p].matrix))))})),
-		boundingBox = new Box2().setFromPoints([].concat(...edgeCuts));
-
-	document.body.appendChild(
-		svg.element('svg', {
-			id: 'output',
-			preserveAspectRatio: 'none',
-			viewBox: [
-				boundingBox.min.x, boundingBox.min.y,
-				boundingBox.getSize().x, boundingBox.getSize().y
-			].join(' ')
-		}, [
-			svg.element('g', {stroke: 'red', 'stroke-width': 0.15},
-				edgeCuts.map(([a, b]) => svg.element('line', {x1: a.x, y1: a.y, x2: b.x, y2: b.y}))
-			),
-			svg.element('g', {stroke: 'blue', 'stroke-width': 0.15},
-				edgeFolds.map(([a, b]) => svg.element('line', {x1: a.x, y1: a.y, x2: b.x, y2: b.y}))
-			),
-			svg.element('g', {stroke: 'red', 'stroke-width': 0.05, fill: 'transparent'},
-				stars.map(({polygon, mag, point}) => {
-					let matrix = (flattenedPolygons[polygon.index] || {}).matrix || new Matrix4(),
-						size = Math.max(0.1, (1 - mag / 7)) * 0.25 + .1,
-						{x, y} = point.clone().applyMatrix4(matrix);
-
-					return svg.element('circle', {cx: x, cy: y, r: size});
-				})
-			),
-			svg.element('g', {id: 'asterisms-groups'},
-				asterismLines.map(({name, lines}) =>
-					svg.element('g', {id: `${name}-lines`, stroke: '#660000', 'stroke-width': 0.1},
-						lines
-							.reduce(PAIR, [[]])
-							.map(([a, b]) =>
-								svg.element('line', {x1: a.x, y1: a.y, x2: b.x, y2: b.y})
-							)
-					)
-				)
-			)
-		])
-	);
-
 	window.addEventListener ('resize', onWindowResize, false);
 	controls.addEventListener('change', animate);
 
