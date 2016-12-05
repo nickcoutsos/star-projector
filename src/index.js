@@ -117,16 +117,13 @@ let projectedEdges = topology.polygons.map(polygon => {
     parent = obj.userData.parent,
     children = obj.userData.children;
 
-  let fold = parent && node.edge.id.split('-').map(n => topology.vertices[Number(n)].clone());
+  let fold = parent && [node.edge.line.start, node.edge.line.end];
   let cuts = node.poly.edges
     .filter(e => (
       (!parent || e.shared.poly !== parent.poly)
       && children.every(c => c.node.edge.id !== e.id)
     ))
-    .map(e =>
-      e.id.split('-')
-        .map(n => topology.vertices[Number(n)].clone())
-    );
+    .map(({line}) => ([line.start, line.end]));
 
   return {polygon, fold, cuts};
 });
@@ -148,7 +145,7 @@ hierarchicalMesh.traverse(obj => {
 
   obj.add(
     o(three.Points, {name: 'stars', geometry: o(three.Geometry, {vertices: stars.map(s => s.point)})}),
-    o(three.Mesh, {geometry: o(three.Geometry, {vertices: topology.vertices.slice(), faces: polygon.faces.slice()})}),
+    o(three.Mesh, {geometry: o(three.Geometry, {vertices: polygon.vertices.slice(), faces: polygon.triangles.map(({a, b, c}) => new three.Face3(...[a,b,c].map(v => polygon.vertices.indexOf(v))))})}),
     o(
       three.Object3D,
       {name: 'asterisms'},

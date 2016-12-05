@@ -1,8 +1,6 @@
 import {Box3, Line3, Plane, Ray, Triangle, Vector3} from 'three';
 
 const EPSILON = 0.000001;
-const CYCLE = (array, index) => array[(array.length + index) % array.length];
-const EDGE_ID = pair => pair.slice().sort((a, b) => a - b).join('-');
 
 /**
  * Collect topological details about the given geometry.
@@ -12,38 +10,35 @@ const EDGE_ID = pair => pair.slice().sort((a, b) => a - b).join('-');
  * that share the same normal vector, and includes:
  *  `normal`: the common normal vector for one or more faces
  *  `faces`: an array of the original geometry's Face objects for the shared normal
- *  `vertices`: an ORDERED array of vertex indices
  *  `center`: a Vector3 representing the center of the polygon
  *  `edges`: an ordered array of circularly linked edge objects
  *
  * @param {THREE.Geometry} geometry
- * @returns {Object} {polygons, vertices, edges}
+ * @returns {Object} {polygons, edges}
  */
 export function getTopology(geometry) {
-  let {vertices} = geometry;
   let polygons = collectPlanarPolygons(geometry);
 
   polygons.forEach(p => p.edgeIndex = {});
   polygons.forEach(p => {
-    p.center = p.vertices.map(n => vertices[n]).reduce((a, b) => new Vector3().addVectors(a, b)).divideScalar(p.vertices.length);
-    p.vertices = orderPolygonVertices(p.normal, p.vertices, vertices);
-    p.boundingBox = new Box3().setFromPoints(p.vertices.map(n => vertices[n]));
-
-    p.edges = p.vertices.map((v, i, indices) => ({
-      index: i,
-      id: EDGE_ID([v, CYCLE(indices, i+1)]),
-      point: vertices[v].clone(),
-      line: new Line3(vertices[v], vertices[CYCLE(indices, i+1)]),
-      vector: new Vector3().subVectors(
-        vertices[CYCLE(indices, i+1)],
-        vertices[v]
-      ).normalize(),
-      poly: p
-    }));
+    p.center = p.vertices.reduce((a, b) => new Vector3().addVectors(a, b)).divideScalar(p.vertices.length);
+    p.vertices = orderPolygonVertices(p.normal, p.vertices);
+    p.boundingBox = new Box3().setFromPoints(p.vertices);
+    p.edges = p.vertices.map((vertex, i, vertices) => {
+      let next = vertices[i + 1] || vertices[0];
+      return {
+        index: i,
+        id: [vertex.index, next.index].sort((a, b) => a - b).join('-'),
+        point: vertex.clone(),
+        line: new Line3(vertex, next),
+        vector: new Vector3().subVectors(next, vertex).normalize(),
+        poly: p
+      };
+    });
 
     p.edges.forEach((e, i, edges) => {
-      e.next = CYCLE(edges, e.index+1);
-      e.prev = CYCLE(edges, e.index-1);
+      e.next = edges[e.index + 1] || edges[0];
+      e.prev = edges[e.index - 1] || edges[edges.length - 1];
     });
   });
 
@@ -64,8 +59,8 @@ export function getTopology(geometry) {
       });
   });
 
+
   return {
-    vertices: vertices.slice(),
     dihedral: polygons[0].normal.angleTo(polygons[0].edges[0].shared.poly.normal),
     faceRadius: polygons[0].center.length(),
     edges: Object.keys(edgeIndex).map(k => edgeIndex[k][0]),
@@ -82,20 +77,20 @@ export function getTopology(geometry) {
  */
 export function collectPlanarPolygons(geometry) {
   return geometry.faces.reduce((polygons, face) => {
-    let polygon = polygons.find(polygon => polygon.normal.angleTo(face.normal) < EPSILON);
+    let polygon = polygons.find(polygon => polygon.normal.angleTo(face.normal) < EPSILON),
+      facePoints = ['a', 'b', 'c'].map(n => geometry.vertices[face[n]]);
+
     if (!polygon) polygons.push(polygon = {
       index: polygons.length,
       normal: face.normal.clone(),
-      plane: planeFromFace(face, geometry),
-      faces: [],
+      plane: new Plane().setFromNormalAndCoplanarPoint(face.normal, facePoints[0]),
+      triangles: [],
       vertices: []
     });
 
-    polygon.faces.push(Object.assign(face.clone(), {vertices: getPointsFromFace(face, geometry)}));
+    polygon.triangles.push(new Triangle(...facePoints));
     polygon.vertices.push(
-      ...['a','b','c']
-        .map(n => face[n])
-        .filter(n => polygon.vertices.indexOf(n) === -1)
+      ...facePoints.filter(v => polygon.vertices.indexOf(v) === -1)
     );
 
     return polygons;
@@ -104,50 +99,26 @@ export function collectPlanarPolygons(geometry) {
 
 
 /**
- * Return an array of the given polygon's vertices in order.
+ * Order an array of vertices around their central point.
  *
- * @param {Object} polygon
- * @returns {Array<Integer>} ordered array of vertex indices
+ * @param {Vector3} normal
+ * @returns {Array<Vector3>} ordered array of points
  */
-export function orderPolygonVertices(normal, indices, vertices) {
-  let points = indices.map(v => vertices[v]),
-    center = points
+export function orderPolygonVertices(normal, points) {
+  let center = points
       .reduce((a, b) => new Vector3().addVectors(a, b))
-      .divideScalar(indices.length);
+      .divideScalar(points.length);
 
-  points = points.map((v, i) => ({index: indices[i], vertex: v, vector: new Vector3().subVectors(v, center)}));
-  points.forEach(p => {
-    let angle = p.vector.angleTo(points[0].vector),
-      cross = new Vector3().crossVectors(points[0].vector, p.vector);
-
-    if (cross.angleTo(normal) > EPSILON) angle = 2*Math.PI - angle;
-    p.angle = angle;
+  let vectors = points.map(p => ({p, vector: new Vector3().subVectors(p, center)}));
+  vectors.forEach(v => {
+    v.angle = v.vector.angleTo(vectors[0].vector);
+    if (new Vector3().crossVectors(vectors[0].vector, v.vector).angleTo(normal) > EPSILON) {
+      v.angle = 2*Math.PI - v.angle;
+    }
   });
 
-  points.sort((a, b) => a.angle - b.angle);
-  return points.map(p => p.index);
-}
-
-
-function planeFromFace(face, geometry) {
-  return new Plane().setFromCoplanarPoints(
-    ...getPointsFromFace(face, geometry)
-  );
-}
-
-/**
-* Resolve vertex indices of a face from the given geometry
-*
-* @param {THREE.Face} face
-* @param {THREE.Geometry} geometry
-* @returns {Array<THREE.Vector3>}
-*/
-export function getPointsFromFace(face, geometry) {
-  return [
-    geometry.vertices[face.a],
-    geometry.vertices[face.b],
-    geometry.vertices[face.c],
-  ];
+  vectors.sort((a, b) => a.angle - b.angle);
+  return vectors.map(({p}) => p);
 }
 
 
@@ -175,7 +146,7 @@ export function travel(source, next) {
       let target;
       if (typeof n === 'number') target = poly.edges[n];
       else if (n.index !== undefined) target = poly.edges[n.index];
-      else if (n.offset) target = CYCLE(poly.edges, edge.index + n.offset);
+      else if (n.offset) target = poly.edges[(poly.edges.length + edge.index + n.offset) % poly.edges.length];
       else throw new Error('Expected relative edge offset property');
 
       return travel(target.shared, n.next || []);
@@ -194,12 +165,10 @@ export function travel(source, next) {
  * @param {Object} topology
  * @returns {Boolean}
  */
-export function pointInPolygon(point, {plane, faces}) {
+export function pointInPolygon(point, {plane, triangles}) {
   return (
     Math.abs(plane.distanceToPoint(point)) < EPSILON &&
-    faces.some(
-      ({vertices}) => new Triangle(...vertices).containsPoint(point)
-    )
+    triangles.some(triangle => triangle.containsPoint(point))
   );
 }
 
