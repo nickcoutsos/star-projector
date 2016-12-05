@@ -9,9 +9,11 @@
     "convexhull-js": "^1.0.0",
     "eslint": "^3.7.1",
     "json-loader": "^0.5.4",
+    "sift": "3.2.6",
     "three": "^0.81.2",
     "webpack": "^1.13.2",
-    "webpack-dev-server": "^1.16.2"
+    "webpack-dev-server": "^1.16.2",
+    "whatwg-fetch": "2.0.1"
   },
   "devDependencies": {
     "babel-core": "6.17.0",
@@ -26,7 +28,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "webpack-dev-server -d --port=8080 --host=0.0.0.0",
-    "build": "mkdir -p build && webpack && cp src/index.html build/"
+    "build": "mkdir -p build/assets && webpack && cp -r src/index.html src/assets build/"
   },
   "author": "",
   "license": "ISC"
