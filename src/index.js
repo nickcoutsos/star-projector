@@ -226,7 +226,7 @@ catalogs.loadAsterismCatalog({
   let connectedStars = [...new Set([].concat(...asterisms.map(a => a.stars)))];
   return catalogs.loadStarCatalog({
     $or: [
-      {magnitude: {$lte: 7}},
+      {magnitude: {$lte: 4.75}},
       {id: {$in: connectedStars}}
     ]
   }).then(stars => {
