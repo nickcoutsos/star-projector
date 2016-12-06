@@ -1,4 +1,4 @@
-import {Object3D, Vector3} from 'three';
+import {Object3D} from 'three';
 import {travel} from './topology';
 import {getGeometryNet} from './nets';
 
@@ -10,30 +10,31 @@ export function constructHierarchicalMesh(topology) {
 
   return (function build(tree, parent=null) {
     let node = tree.node,
-      object = new Object3D(),
-      offset = new Object3D(),
-      pivot = node.edge.vector;
+      pivotAxis = node.edge.vector,
+      pivotNode = new Object3D(),
+      polyNode = new Object3D();
 
-    object.rotateOnAxis(pivot, topology.dihedral);
-    object.userData.pivot = pivot;
-    object.userData.animate = t => {
+    pivotNode.rotateOnAxis(pivotAxis, topology.dihedral);
+    pivotNode.userData.animate = t => {
 			let alpha = 0.5 * (Math.sin(-Math.PI / 2 + t / 1000) + 1);
 			let angle = alpha * topology.dihedral;
-			object.rotation.set(0, 0, 0);
-			object.rotateOnAxis(pivot, angle);
+			pivotNode.rotation.set(0, 0, 0);
+			pivotNode.rotateOnAxis(pivotAxis, angle);
 		};
-    object.position
-      .sub(parent ? parent.edge.point : new Vector3())
-      .add(node.edge.point);
 
-    offset.name = `polygon-${node.poly.index}`;
-    offset.position.sub(node.edge.point);
-    offset.userData.node = node;
-    offset.userData.parent = parent;
-    offset.userData.children = tree.children;
+    pivotNode.position.add(node.edge.point);
+    if (parent) {
+      pivotNode.position.sub(parent.edge.point);
+    }
 
-    return object.add(
-      offset,
+    polyNode.name = `polygon-${node.poly.index}`;
+    polyNode.position.sub(node.edge.point);
+    polyNode.userData.node = node;
+    polyNode.userData.parent = parent;
+    polyNode.userData.children = tree.children;
+
+    return pivotNode.add(
+      polyNode,
       ...tree.children.slice(0)
         .map(child => build(child, node))
     );
