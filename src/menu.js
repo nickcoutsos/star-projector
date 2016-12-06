@@ -19,10 +19,6 @@ export function createMenu(asterisms, onHover, onToggle) {
     if (e.target.tagName.toLowerCase() !== 'li') return;
     let target = e.target.innerText;
     onHover(target);
-
-    [].slice.call(document.querySelectorAll(`svg g#asterisms-groups > g:not([stroke="transparent"])`))
-      .forEach(element => element.setAttribute('stroke', '#660000'));
-    document.querySelector(`svg g[id="${target}-lines"]`).setAttribute('stroke', '#ff7700');
   });
 
   list.addEventListener('click', e => {

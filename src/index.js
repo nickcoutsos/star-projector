@@ -37,7 +37,7 @@ let PAIR = (pairs, val) => {
 
 let materials = {
   asterismLines: new three.LineBasicMaterial({color: 0x660000}),
-  asterismLinesHover: new three.LineBasicMaterial({color: 0xffff00}),
+  asterismLinesHover: new three.LineBasicMaterial({color: 0xffff00, linewidth: 3}),
   cutLines: new three.LineBasicMaterial({color: 0xff0000, linewidth: 2}),
   foldLines: new three.LineDashedMaterial({color: 0x660000, linewidth: 2, dashSize: 1, gapSize: 0.3}),
   stars: new three.PointsMaterial({color: 0xffffff, size:0.125}),
@@ -196,7 +196,17 @@ function main(polyhedron, stars, asterisms) {
         if (!node.userData.asterism) return;
         node.material = node.userData.asterism.name === hoverAsterism
           ? materials.asterismLinesHover
-          : materials.asterismLines
+          : materials.asterismLines;
+
+        [].slice.call(document.querySelectorAll(`svg g#asterisms-groups > g:not([stroke="transparent"])`))
+            .forEach(element => {
+              element.style.stroke = null;
+              element.style.strokeWidth = null;
+            });
+
+        let group = document.querySelector(`svg g[id="${hoverAsterism}-lines"]`);
+        group.style.stroke = '#ff7700';
+        group.style.strokeWidth = .25;
       });
 
       render();
