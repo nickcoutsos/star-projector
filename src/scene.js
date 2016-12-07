@@ -7,6 +7,7 @@ export function init(obj) {
 	let width = window.innerWidth;
 	let height = window.innerHeight;
 	renderer.setSize (width, height);
+	renderer.setClearColor(new Color('hsl(230, 54%, 36%)'));
 	document.body.appendChild (renderer.domElement);
 
 	let scene = new Scene();

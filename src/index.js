@@ -36,12 +36,12 @@ let PAIR = (pairs, val) => {
 };
 
 let materials = {
-  asterismLines: new three.LineBasicMaterial({color: 0x660000}),
+  asterismLines: new three.LineDashedMaterial({color: 0xcccccc, dashSize: 0.3, gapSize: 0.1}),
   asterismLinesHover: new three.LineBasicMaterial({color: 0xffff00, linewidth: 3}),
-  cutLines: new three.LineBasicMaterial({color: 0xff0000, linewidth: 2}),
-  foldLines: new three.LineDashedMaterial({color: 0x660000, linewidth: 2, dashSize: 1, gapSize: 0.3}),
+  cutLines: new three.LineBasicMaterial({color: 0xaaaaaa, linewidth: 2}),
+  foldLines: new three.LineDashedMaterial({color: 0x9999aa, linewidth: 2, dashSize: 1, gapSize: 0.3}),
   stars: new three.PointsMaterial({color: 0xffffff, size:0.125}),
-  faces: new three.MeshBasicMaterial({color: 0x440000, transparent: true, opacity: 0.6, side: three.DoubleSide})
+  faces: new three.MeshBasicMaterial({color: new three.Color('hsl(230, 54%, 25%)'), transparent: true, opacity: 0.6, side: three.DoubleSide})
 };
 
 
