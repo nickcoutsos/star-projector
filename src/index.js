@@ -187,7 +187,7 @@ function main(polyhedron, stars, asterisms) {
     }
   });
 
-  let {render} = init(hierarchicalMesh);
+  let {render} = init(o(three.Object3D, {}, hierarchicalMesh));
   drawSVG(objectByPolygon, projectedStars, projectedAsterisms, projectedEdges);
   createMenu(
     asterisms,

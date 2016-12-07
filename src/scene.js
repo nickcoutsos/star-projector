@@ -1,7 +1,5 @@
 import debounce from 'debounce';
-import {PerspectiveCamera, Scene, Vector3, WebGLRenderer} from 'three';
-
-import {OrbitControls} from './OrbitControls';
+import {Color, Matrix4, PerspectiveCamera, Quaternion, Scene, Vector3, WebGLRenderer} from 'three';
 
 
 export function init(obj) {
@@ -18,7 +16,6 @@ export function init(obj) {
 	let camera = new PerspectiveCamera(85, width/height, 1, 10000);
   camera.position.set(0, 0, 20);
 	camera.lookAt(new Vector3(0,0,0));
-  let controls = new OrbitControls(camera, renderer.domElement);
 
 	scene.add(obj);
 
@@ -38,7 +35,6 @@ export function init(obj) {
 	}
 
 	animate = debounce(render, 16);
-	controls.addEventListener('change', animate);
 
 	renderer.domElement.addEventListener('click', () => {
 		scene.userData.animate = !scene.userData.animate;
@@ -50,6 +46,21 @@ export function init(obj) {
 		camera.updateProjectionMatrix();
 		renderer.setSize (window.innerWidth, window.innerHeight);
 		renderer.render(scene, camera);
+	});
+
+	renderer.domElement.addEventListener('mousewheel', ({deltaX, deltaY}) => {
+		let right = new Vector3().crossVectors(camera.getWorldDirection(), camera.up).normalize(),
+			up = right.clone().cross(camera.getWorldDirection()).normalize();
+
+		obj.applyMatrix(
+			new Matrix4().makeRotationFromQuaternion(
+				new Quaternion().multiplyQuaternions(
+					new Quaternion().setFromAxisAngle(up, deltaX / renderer.domElement.clientWidth),
+					new Quaternion().setFromAxisAngle(right, deltaY / renderer.domElement.clientHeight)
+				)
+			)
+		);
+		animate();
 	});
 
 	return {
