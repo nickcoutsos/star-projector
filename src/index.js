@@ -20,6 +20,15 @@ function o(constructor, props, children=[]) {
   return node;
 }
 
+// a version of three.Object3D.traverse that can return values
+function traverseMap(node, callback) {
+  let array = [], wrapped = n => array.push(callback(n));
+
+  node.traverse(wrapped);
+
+  return array;
+}
+
 function vectorFromAngles(theta, phi) {
 	return new three.Vector3(
 		Math.cos(phi) * Math.sin(theta),
@@ -162,7 +171,6 @@ function main(polyhedron, stars, asterisms) {
     cross = new three.Vector3().crossVectors(top.normal, back).normalize(),
     rotation = new three.Matrix4().makeRotationAxis(cross, angle);
 
-  hierarchicalMesh.applyMatrix(rotation);
   hierarchicalMesh.updateMatrixWorld();
   hierarchicalMesh.position.add(top.edges[0].point.clone().applyMatrix4(hierarchicalMesh.matrixWorld));
   hierarchicalMesh.userData.animate = t => {
@@ -187,8 +195,20 @@ function main(polyhedron, stars, asterisms) {
     }
   });
 
-  let {render} = init(o(three.Object3D, {}, hierarchicalMesh));
-  drawSVG(objectByPolygon, projectedStars, projectedAsterisms, projectedEdges);
+  let {render} = init(o(three.Object3D, {}, [hierarchicalMesh, new three.AxisHelper()]));
+  let polygonTransforms = traverseMap(
+      hierarchicalMesh,
+      node => node.userData.node && ([
+        node.userData.node.poly.index,
+        rotation.clone().multiply(node.matrixWorld)
+      ])
+    )
+    .filter(value => value)
+    .reduce((map, [index, matrix]) => (
+      map[index] = matrix, map
+    ), {});
+
+  drawSVG(polygonTransforms, projectedStars, projectedAsterisms, projectedEdges);
   createMenu(
     asterisms,
     hoverAsterism => {

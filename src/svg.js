@@ -31,12 +31,12 @@ export function drawSVG(matrices, stars, asterisms, edges) {
     ({star, polygon, point}) =>
     Object.assign(
       {radius: Math.max(0.1, (1 - star.magnitude / 7)) * 0.25 + .1},
-      point.clone().applyMatrix4(matrices[polygon.index].matrixWorld)
+      point.clone().applyMatrix4(matrices[polygon.index])
     )
   );
 
-  let cuts = [].concat(...edges.map(({polygon, cuts}) => cuts.map(cut => cut.map(p => p.clone().applyMatrix4(matrices[polygon.index].matrixWorld))))),
-    folds = edges.map(({polygon, fold}) => fold && fold.map(p => p.clone().applyMatrix4(matrices[polygon.index].matrixWorld))).filter(fold => fold);
+  let cuts = [].concat(...edges.map(({polygon, cuts}) => cuts.map(cut => cut.map(p => p.clone().applyMatrix4(matrices[polygon.index]))))),
+    folds = edges.map(({polygon, fold}) => fold && fold.map(p => p.clone().applyMatrix4(matrices[polygon.index]))).filter(fold => fold);
 
 
   let edgeHull = hull([].concat(...cuts))
@@ -46,7 +46,7 @@ export function drawSVG(matrices, stars, asterisms, edges) {
 
 
   let longestEdge = edgeHull.map(([a, b]) => a.clone().sub(b)).reduce((a, b) => b.lengthSq() > a.lengthSq() ? b : a),
-		aaRotation = new Matrix4().makeRotationAxis(new Vector3(0, 0, 1), -longestEdge.angleTo(new Vector3(1, 0, 0))),
+		aaRotation = new Matrix4().makeRotationAxis(new Vector3(0, 0, 1), longestEdge.angleTo(new Vector3(1, 0, 0))),
     align = p => p.clone().applyMatrix4(aaRotation),
     alignEdge = edge => edge.map(align);
 
@@ -56,7 +56,7 @@ export function drawSVG(matrices, stars, asterisms, edges) {
 
   asterisms = asterisms.map(
     ({asterism, polygon, edge}) =>
-    ({asterism, edge: edge.map(p => p.clone().applyMatrix4(matrices[polygon].matrixWorld))})
+    ({asterism, edge: edge.map(p => p.clone().applyMatrix4(matrices[polygon]))})
   ).reduce((asterisms, {asterism, edge}) => {
     if (!asterisms[asterism.name]) asterisms[asterism.name] = [];
     asterisms[asterism.name].push(alignEdge(edge));
