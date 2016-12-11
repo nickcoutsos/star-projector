@@ -22,9 +22,9 @@ function o(constructor, props, children=[]) {
 
 function vectorFromAngles(theta, phi) {
 	return new three.Vector3(
-		Math.sin(phi) * Math.sin(theta),
-		Math.cos(phi),
-		Math.sin(phi) * Math.cos(theta)
+		Math.cos(phi) * Math.sin(theta),
+		Math.sin(phi),
+		Math.cos(phi) * Math.cos(theta)
 	).normalize();
 }
 

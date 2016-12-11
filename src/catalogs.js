@@ -100,7 +100,7 @@ function formatStar(star) {
   return {
     id: star.hd,
     rightAscension: star.rarad,
-    declination: star.decrad - Math.PI/2,
+    declination: star.decrad,
     magnitude: star.mag
   };
 }
