@@ -14,17 +14,17 @@ export function constructHierarchicalMesh(topology) {
       pivotNode = new Object3D(),
       polyNode = new Object3D();
 
-    pivotNode.rotateOnAxis(pivotAxis, topology.dihedral);
-    pivotNode.userData.animate = t => {
-			let alpha = 0.5 * (Math.sin(-Math.PI / 2 + t / 1000) + 1);
-			let angle = alpha * topology.dihedral;
-			pivotNode.rotation.set(0, 0, 0);
-			pivotNode.rotateOnAxis(pivotAxis, angle);
-		};
 
     pivotNode.position.add(node.edge.point);
     if (parent) {
       pivotNode.position.sub(parent.edge.point);
+      pivotNode.rotateOnAxis(pivotAxis, topology.dihedral);
+      pivotNode.userData.animate = t => {
+        let alpha = 0.5 * (Math.sin(-Math.PI / 2 + t / 1000) + 1);
+        let angle = alpha * topology.dihedral;
+        pivotNode.rotation.set(0, 0, 0);
+        pivotNode.rotateOnAxis(pivotAxis, angle);
+      };
     }
 
     polyNode.name = `polygon-${node.poly.index}`;
