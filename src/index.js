@@ -189,7 +189,7 @@ function main(polyhedron, stars, asterisms) {
     }
   });
 
-  let {render} = init(o(three.Object3D, {}, [hierarchicalMesh, new three.AxisHelper()]));
+  let {render} = init(o(three.Object3D, {up: top.normal}, [hierarchicalMesh, new three.AxisHelper()]));
   let polygonTransforms = traverseMap(
       hierarchicalMesh,
       node => node.userData.node && ([

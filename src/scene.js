@@ -19,7 +19,19 @@ export function init(obj) {
   camera.position.set(0, 0, 20);
 	camera.lookAt(new Vector3(0,0,0));
 
-	scene.add(obj);
+	let wrapper = new Object3D();
+	wrapper.userData.lastDirection = obj.up;
+	wrapper.userData.animate = t => {
+		let target = new Vector3(0, 0, -1),
+			source = wrapper.userData.lastDirection,
+			angle = source.angleTo(target),
+			cross = new Vector3().crossVectors(source, target).normalize();
+
+		wrapper.setRotationFromAxisAngle(cross, angle * t);
+	}
+
+	wrapper.add(obj);
+	scene.add(wrapper);
 
 	let animate;
 	function render() {
@@ -47,6 +59,12 @@ export function init(obj) {
 	renderer.domElement.addEventListener('click', () => {
 		scene.userData.open = !scene.userData.open;
 		scene.userData.animating = true;
+		if (scene.userData.open) {
+			obj.applyMatrix(wrapper.matrix);
+			wrapper.userData.lastDirection = obj.up.clone().applyMatrix4(obj.matrix).normalize();
+			wrapper.rotation.set(0, 0, 0);
+		}
+
 		animate();
 	});
 
@@ -58,10 +76,11 @@ export function init(obj) {
 	});
 
 	renderer.domElement.addEventListener('mousewheel', ({deltaX, deltaY}) => {
+		if (scene.userData.open || scene.userData.animating) return;
 		let right = new Vector3().crossVectors(camera.getWorldDirection(), camera.up).normalize(),
 			up = right.clone().cross(camera.getWorldDirection()).normalize();
 
-		obj.applyMatrix(
+		wrapper.applyMatrix(
 			new Matrix4().makeRotationFromQuaternion(
 				new Quaternion().multiplyQuaternions(
 					new Quaternion().setFromAxisAngle(up, deltaX / renderer.domElement.clientWidth),
