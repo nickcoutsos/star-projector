@@ -171,6 +171,12 @@ function main(polyhedron, stars, asterisms) {
     cross = new three.Vector3().crossVectors(top.normal, back).normalize(),
     rotation = new three.Matrix4().makeRotationAxis(cross, angle);
 
+  let north = projectVector(vectorFromAngles(0, Math.PI/2), topology),
+    south = projectVector(vectorFromAngles(0, -Math.PI/2), topology);
+
+  objectByPolygon[north.polygon.index].add(new three.ArrowHelper(new three.Vector3(0, 1, 0), north.point, 5, 0xff0000));
+  objectByPolygon[south.polygon.index].add(new three.ArrowHelper(new three.Vector3(0, -1, 0), south.point, 5, 0xffffff));
+
   hierarchicalMesh.updateMatrixWorld();
   hierarchicalMesh.traverse(node => {
     if (node instanceof three.LineSegments) {
@@ -189,7 +195,7 @@ function main(polyhedron, stars, asterisms) {
     }
   });
 
-  let {render} = init(o(three.Object3D, {up: top.normal}, [hierarchicalMesh, new three.AxisHelper()]));
+  let {render} = init(o(three.Object3D, {up: top.normal}, hierarchicalMesh));
   let polygonTransforms = traverseMap(
       hierarchicalMesh,
       node => node.userData.node && ([
