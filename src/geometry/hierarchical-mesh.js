@@ -20,8 +20,8 @@ export function constructHierarchicalMesh(topology) {
       pivotNode.position.sub(parent.edge.point);
       pivotNode.rotateOnAxis(pivotAxis, topology.dihedral);
       pivotNode.userData.animate = t => {
-        let alpha = 0.5 * (Math.sin(-Math.PI / 2 + t / 1000) + 1);
-        let angle = alpha * topology.dihedral;
+        // rotations of 0 radians seem to cause sorting issues in the renderer
+        let angle = Math.max(0.0001, t * topology.dihedral);
         pivotNode.rotation.set(0, 0, 0);
         pivotNode.rotateOnAxis(pivotAxis, angle);
       };

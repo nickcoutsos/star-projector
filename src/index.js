@@ -172,12 +172,6 @@ function main(polyhedron, stars, asterisms) {
     rotation = new three.Matrix4().makeRotationAxis(cross, angle);
 
   hierarchicalMesh.updateMatrixWorld();
-  hierarchicalMesh.position.add(top.edges[0].point.clone().applyMatrix4(hierarchicalMesh.matrixWorld));
-  hierarchicalMesh.userData.animate = t => {
-    let alpha = 0.5 * (Math.sin(-Math.PI / 2 + t / 1000) + 1);
-    hierarchicalMesh.position.z = (1 - alpha) * -topology.faceRadius;
-  }
-
   hierarchicalMesh.traverse(node => {
     if (node instanceof three.LineSegments) {
       node.geometry.computeLineDistances();

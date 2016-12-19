@@ -1,6 +1,5 @@
 import debounce from 'debounce';
-import {Color, Matrix4, PerspectiveCamera, Quaternion, Scene, Vector3, WebGLRenderer} from 'three';
-
+import {Color, Matrix4, Object3D, PerspectiveCamera, Quaternion, Scene, Vector3, WebGLRenderer} from 'three';
 
 export function init(obj) {
 	let renderer = new WebGLRenderer({ antialias:true });
@@ -10,9 +9,11 @@ export function init(obj) {
 	renderer.setClearColor(new Color('hsl(230, 54%, 36%)'));
 	document.body.appendChild (renderer.domElement);
 
+	const ANIMATION_SPEED = 0.016;
 	let scene = new Scene();
-	scene.userData.animate = false;
-	scene.userData.time = 1;
+	scene.userData.open = false;
+	scene.userData.animating = true;
+	scene.userData.time = 0;
 
 	let camera = new PerspectiveCamera(85, width/height, 1, 10000);
   camera.position.set(0, 0, 20);
@@ -22,24 +23,31 @@ export function init(obj) {
 
 	let animate;
 	function render() {
-		scene.traverse(node => {
-			if (typeof node.userData.animate !== 'function') return;
-			node.userData.animate(scene.userData.time);
-		});
+		let {animating, open, time} = scene.userData,
+			delta = ANIMATION_SPEED * (open ? 1 : -1);
 
 		renderer.render(scene, camera);
 
-		if (scene.userData.animate) {
-			scene.userData.time += 16;
-			requestAnimationFrame (animate);
+		if (animating) {
+			requestAnimationFrame(animate);
+			scene.userData.time = time = Math.max(0, Math.min(1, time + delta));
+			scene.traverse(node => {
+				if (typeof node.userData.animate !== 'function') return;
+				node.userData.animate(time);
+			});
+
+			if (time === 1 || time === 0) {
+				scene.userData.animating = false;
+			}
 		}
 	}
 
 	animate = debounce(render, 16);
 
 	renderer.domElement.addEventListener('click', () => {
-		scene.userData.animate = !scene.userData.animate;
-		scene.userData.animate && animate();
+		scene.userData.open = !scene.userData.open;
+		scene.userData.animating = true;
+		animate();
 	});
 
 	window.addEventListener('resize', () => {
