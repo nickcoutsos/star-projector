@@ -75,7 +75,23 @@ export function init(obj) {
 		renderer.render(scene, camera);
 	});
 
-	renderer.domElement.addEventListener('mousewheel', ({deltaX, deltaY}) => {
+	renderer.domElement.addEventListener('mousewheel', rotate);
+	renderer.domElement.addEventListener('mousedown', e => {
+		let x = e.clientX, y = e.clientY;
+		let move = ({clientX, clientY}) => {
+			let delta = {deltaX: clientX - x, deltaY: clientY - y};
+			x = clientX;
+			y = clientY;
+			rotate(delta, 10);
+		};
+
+		renderer.domElement.addEventListener('mousemove', move);
+		renderer.domElement.addEventListener('mouseup', () => {
+			renderer.domElement.removeEventListener('mousemove', move);
+		});
+	});
+
+	function rotate({deltaX, deltaY}, speed=1) {
 		if (scene.userData.open || scene.userData.animating) return;
 		let right = new Vector3().crossVectors(camera.getWorldDirection(), camera.up).normalize(),
 			up = right.clone().cross(camera.getWorldDirection()).normalize();
@@ -83,13 +99,13 @@ export function init(obj) {
 		wrapper.applyMatrix(
 			new Matrix4().makeRotationFromQuaternion(
 				new Quaternion().multiplyQuaternions(
-					new Quaternion().setFromAxisAngle(up, deltaX / renderer.domElement.clientWidth),
-					new Quaternion().setFromAxisAngle(right, deltaY / renderer.domElement.clientHeight)
+					new Quaternion().setFromAxisAngle(up, speed * deltaX / renderer.domElement.clientWidth),
+					new Quaternion().setFromAxisAngle(right, speed * deltaY / renderer.domElement.clientHeight)
 				)
 			)
 		);
 		animate();
-	});
+	}
 
 	return {
 		scene,
