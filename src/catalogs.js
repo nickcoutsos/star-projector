@@ -146,12 +146,15 @@ function fetchStarCatalogFilesByMagnitude(magnitude) {
 }
 
 function fetchStarCatalogFile(file) {
-  promiseStarCatalogs[file] = promiseStarCatalogs[file] || fetch(`/assets/${file}`);
-  return promiseStarCatalogs[file]
-    .then(jsonOrDeath)
-    .then(stars => stars.map(formatStar))
-    .catch(err => {
-      promiseStarCatalogs[file] = null;
-      throw err;
-    });
+  if (!promiseStarCatalogs[file]) {
+    promiseStarCatalogs[file] = fetch(`assets/${file}`)
+      .then(jsonOrDeath)
+      .then(stars => stars.map(formatStar))
+      .catch(err => {
+        promiseStarCatalogs[file] = null;
+        throw err;
+      });
+  }
+
+  return promiseStarCatalogs[file];
 }
