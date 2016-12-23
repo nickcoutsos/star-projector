@@ -17,6 +17,8 @@ const EPSILON = 0.000001;
  * @returns {Object} {polygons, edges}
  */
 export function getTopology(geometry) {
+  // Some geometries don't include an index property on their vertices
+  geometry.vertices.forEach((v, i) => v.index = i);
   let polygons = collectPlanarPolygons(geometry);
 
   polygons.forEach(p => p.edgeIndex = {});
