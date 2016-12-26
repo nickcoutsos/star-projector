@@ -83,7 +83,7 @@ export function loadStarCatalog(query={}) {
  * @returns {Promise} - resolves to an array of matched asterisms.
  */
 export function loadAsterismCatalog(query={}) {
-  promiseAsterismCatalog = promiseAsterismCatalog || fetch('/assets/asterisms.json');
+  promiseAsterismCatalog = promiseAsterismCatalog || fetch('assets/asterisms.json');
   let sifter = asterisms => sift(query, asterisms);
   return promiseAsterismCatalog
     .then(jsonOrDeath)
