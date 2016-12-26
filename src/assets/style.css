@@ -1,0 +1,88 @@
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+}
+
+.description {
+  font-size: 80%;
+  font-style: italic;
+}
+
+
+#output {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 400px;
+  height: 300px;
+  background: white;
+}
+#asterisms {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin: 0;
+  padding: 0;
+  list-style-type: none;
+  list-style-position: inside;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  height: 100%;
+  overflow: scroll;
+}
+#asterisms li {
+  padding: 5px 5px;
+  cursor: pointer;
+}
+#asterisms li:hover {
+  background: yellow;
+  color: black;
+}
+#asterisms li.disabled {
+  text-decoration: line-through;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.4);
+}
+#asterisms li.disabled:hover {
+  background: red;
+}
+canvas {
+  display: block;
+  padding: 0;
+  margin: 0;
+}
+
+#app {
+  display: flex;
+  height: 100%;
+  flex-direction: row;
+}
+
+#menu {
+  width: 200px;
+  height: 100%;
+  overflow: scroll;
+  padding: 0px 20px;
+  background-color: #eee;
+}
+
+#menu ul {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+}
+
+#preview {
+  height: 100%;
+  flex-grow: 1;
+  background-color: #aab;
+}
+#preview h2 {
+  position: absolute;
+  color: white;
+}
+#preview > div {
+  height: 100%;
+}
