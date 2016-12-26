@@ -3,12 +3,13 @@ import {travel} from './topology';
 import {getGeometryNet} from './nets';
 
 export function constructHierarchicalMesh(topology) {
-  let tree = travel(
-    topology.polygons[0].edges[0],
-    getGeometryNet(topology)
-  );
+  let top = topology.polygons[0],
+    tree = travel(
+      top.edges[0],
+      getGeometryNet(topology)
+    );
 
-  return (function build(tree, parent=null) {
+  let hierarchy = (function build(tree, parent=null) {
     let node = tree.node,
       pivotAxis = node.edge.vector,
       pivotNode = new Object3D(),
@@ -39,4 +40,7 @@ export function constructHierarchicalMesh(topology) {
         .map(child => build(child, node))
     );
   })(tree);
+
+  hierarchy.up = top.normal.clone();
+  return hierarchy;
 }
