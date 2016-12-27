@@ -33,5 +33,5 @@
   side: DoubleSide;
 }
 .active .poly-face {
-  color: hsl(20, 54%, 35%);
+  color: hsl(5, 54%, 35%);
 }

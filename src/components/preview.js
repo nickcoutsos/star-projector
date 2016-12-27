@@ -1,6 +1,7 @@
-import {Matrix4, Object3D, PerspectiveCamera, Scene, Vector3, WebGLRenderer} from 'three';
 import Vue from 'vue';
+import debounce from 'debounce';
 import {applyStyle} from 'threestyle';
+import {Matrix4, Object3D, PerspectiveCamera, Raycaster, Scene, Vector2, Vector3, WebGLRenderer} from 'three';
 
 
 export default Vue.component('object-preview', {
@@ -9,6 +10,7 @@ export default Vue.component('object-preview', {
 		renderer: new WebGLRenderer({antialias: true}),
 		camera: new PerspectiveCamera(75, 1, 0.1, 10),
 		scene: new Scene(),
+		picker: new Raycaster(),
 		wrapper: new Object3D(),
 		open: false,
 		animating: true,
@@ -40,6 +42,7 @@ export default Vue.component('object-preview', {
 	mounted() {
 		this.$el.appendChild(this.renderer.domElement);
 		this.$el.addEventListener('click', () => this.onAnimate());
+		this.$el.addEventListener('mousemove', debounce(e => this.onMouseMove(e), 15));
 		window.addEventListener('resize', () => this.onResize());
 
 		if (this.object) {
@@ -77,6 +80,33 @@ export default Vue.component('object-preview', {
 			this.camera.aspect = width / height;
 			this.camera.updateProjectionMatrix();
 			this.renderFrame();
+		},
+
+		onMouseMove({clientX, clientY}) {
+			let {camera, object, picker, renderer} = this;
+
+			let coords = coords = new Vector2(
+				((clientX  - renderer.domElement.offsetLeft) / renderer.domElement.clientWidth) * 2 - 1,
+				((clientY  - renderer.domElement.offsetTop) / renderer.domElement.clientHeight) * -2 + 1
+			);
+
+			picker.setFromCamera(coords, camera);
+			let targets = [];
+			object.traverse(node => node.isMesh && targets.push(node));
+
+			let active = false;
+			for (let target of targets) {
+				let intersect = picker.intersectObject(target);
+				if (intersect.length > 0) {
+					active = true;
+					break;
+				}
+			}
+
+			if (object.userData.className === 'active' && !active) object.userData.className = '';
+			else if (object.userData.className !== 'active' && active) object.userData.className = 'active';
+
+			renderer.domElement.classList.toggle('object-hover', active);
 		},
 
 		renderFrame() {
