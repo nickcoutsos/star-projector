@@ -1,5 +1,6 @@
 import {Matrix4, Object3D, PerspectiveCamera, Scene, Vector3, WebGLRenderer} from 'three';
 import Vue from 'vue';
+import {applyStyle} from 'threestyle';
 
 
 export default Vue.component('object-preview', {
@@ -28,11 +29,12 @@ export default Vue.component('object-preview', {
 			this.wrapper.setRotationFromAxisAngle(cross, angle * t);
 		}
 
-
 		this.scene.add(
 			this.camera,
 			this.wrapper
 		);
+
+		applyStyle(this.scene);
 	},
 
 	mounted() {

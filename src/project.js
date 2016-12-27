@@ -2,15 +2,6 @@ import * as three from 'three';
 import {getTopology, projectVector, projectLineSegment} from './geometry/topology';
 import {constructHierarchicalMesh} from './geometry/hierarchical-mesh';
 
-let materials = {
-  asterismLines: new three.LineDashedMaterial({color: 0xcccccc, dashSize: 0.08, gapSize: 0.01}),
-  asterismLinesHover: new three.LineBasicMaterial({color: 0xffff00, linewidth: 3}),
-  cutLines: new three.LineBasicMaterial({color: 0xaaaaaa, linewidth: 2}),
-  foldLines: new three.LineDashedMaterial({color: 0x9999aa, linewidth: 2, dashSize: 0.08, gapSize: 0.01}),
-  stars: new three.PointsMaterial({color: 0xffffff, size:0.0125}),
-  faces: new three.MeshBasicMaterial({color: new three.Color('hsl(230, 54%, 25%)'), transparent: true, opacity: 0.6, side: three.DoubleSide})
-};
-
 function o(constructor, props, children=[]) {
   let node = Object.assign(new constructor, props);
 
@@ -149,17 +140,17 @@ export default function project(polyhedron, stars, asterisms) {
   hierarchicalMesh.traverse(node => {
     if (node instanceof three.LineSegments) {
       node.geometry.computeLineDistances();
-      node.material = {
-        asterism: materials.asterismLines,
-        fold: materials.foldLines,
-        cuts: materials.cutLines
+      node.userData.className = {
+        asterism: 'dash-line asterism',
+        fold: 'dash-line fold',
+        cuts: 'cut'
       }[node.userData.type] || new three.LineBasicMaterial();
     }
     else if (node instanceof three.Points) {
-      node.material = materials.stars;
+      node.userData.className = 'stars';
     }
     else if (node instanceof three.Mesh) {
-      node.material = materials.faces;
+      node.userData.className = 'poly-face';
     }
   });
 

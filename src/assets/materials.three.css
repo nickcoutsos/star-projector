@@ -1,0 +1,37 @@
+.dash-line {
+  type: LineDashedMaterial;
+  dashSize: 0.08;
+  gapSize: 0.01;
+}
+
+.asterism {
+  color: #cccccc;
+}
+
+.cut {
+  type: LineBasicMaterial;
+  color: #aaaaaa;
+  linewidth: 2;
+}
+
+.fold {
+  color: #9999aa;
+  linewidth: 2;
+}
+
+.stars {
+  type: PointsMaterial;
+  color: white;
+  size: 0.0125;
+}
+
+.poly-face {
+  type: MeshBasicMaterial;
+  color: hsl(230, 54%, 25%);
+  transparent: true;
+  opacity: 0.6;
+  side: DoubleSide;
+}
+.active .poly-face {
+  color: hsl(20, 54%, 35%);
+}
