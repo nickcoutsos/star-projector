@@ -22,5 +22,8 @@ module.exports = {
   devServer: {
     contentBase: './src',
     historyApiFallback: true
+  },
+  node: {
+    fs: 'empty'
   }
 }
