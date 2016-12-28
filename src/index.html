@@ -41,7 +41,7 @@
         </p>
         <ul>
           <li v-for="asterism in availableAsterisms">
-            <label><input type="checkbox" :value="asterism.name" v-model="selectedAsterisms" /> {{asterism.name}}</label>
+            <label><input type="checkbox" :value="asterism" v-model="selectedAsterisms" /> {{asterism.name}}</label>
           </li>
         </ul>
       </form>

@@ -45,7 +45,7 @@ new Vue({
       }).then(
         asterisms => {
           this.availableAsterisms = asterisms;
-          this.selectedAsterisms = asterisms.map(({name}) => name);
+          this.selectedAsterisms = asterisms.slice();
         }
       );
     },
@@ -75,7 +75,7 @@ new Vue({
       return project(
         AVAILABLE_GEOMETRIES[this.selectedGeometry],
         this.availableStars,
-        this.availableStars.length > 0 ? this.availableAsterisms : []
+        this.availableStars.length > 0 ? this.selectedAsterisms : []
       );
     }
   }
