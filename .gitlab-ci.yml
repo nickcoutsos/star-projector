@@ -4,26 +4,13 @@ cache:
   paths:
     - node_modules/
 
-stages:
-  - build
-  - deploy
-
-
-build:
-  stage: build
-  artifacts:
-    paths:
-      - build/
-  script:
-    - npm install
-    - npm run build
-
 pages:
   stage: deploy
   script:
+    - npm install
+    - npm run build
     - mv build/ public/
   artifacts:
-    untracked: true
     paths:
       - public/
 
