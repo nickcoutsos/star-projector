@@ -19,6 +19,9 @@ module.exports = {
       'vue$': 'vue/dist/vue.common.js'
     }
   },
+  externals: {
+    'three': 'THREE'
+  },
   devServer: {
     contentBase: './src',
     historyApiFallback: true
