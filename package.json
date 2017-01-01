@@ -9,7 +9,6 @@
     "convexhull-js": "^1.0.0",
     "debounce": "^1.0.0",
     "eslint": "^3.7.1",
-    "json-loader": "0.5.4",
     "sift": "3.2.6",
     "three": "0.81.2",
     "threestyle": "0.2.1",
