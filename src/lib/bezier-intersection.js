@@ -59,7 +59,7 @@ export function computeIntersections(bezier, line) {
     ly = line.map(({y}) => y);
 
   let vertical = lx[1] - lx[0] == 0,
-    delta = vertical ? (lx[1] - lx[0]) : (ly[1] - ly[0]);
+    delta = vertical ? (ly[1] - ly[0]) : (lx[1] - lx[0]);
 
   let A = ly[1] - ly[0],
     B = lx[0] - lx[1],
@@ -80,9 +80,9 @@ export function computeIntersections(bezier, line) {
   let xCurve = cubicPolynomial(coefficients.x),
     yCurve = cubicPolynomial(coefficients.y);
 
-	return cubicRoots(combinedCoefficients)
+	return [].concat(cubicRoots(combinedCoefficients))
     .map(t => {
-        let [x, y] = [xCurve(y), y = yCurve(t)],
+        let [x, y] = [xCurve(t), y = yCurve(t)],
           s = (vertical ? (y - ly[0]) : (x - lx[0])) / delta;
 
         /*above is intersection point assuming infinitely long line segment,
@@ -93,10 +93,10 @@ export function computeIntersections(bezier, line) {
           return null;
         }
 
-        return {x, y};
+        return {x, y, t};
     }).filter(
       point => point !== null
-    );
+    ).sort((a, b) => a.t - b.t);
 }
 
 
