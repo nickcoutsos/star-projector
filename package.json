@@ -25,6 +25,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "bezier-js": "2.2.3"
+    "bezier-js": "2.2.3",
+    "parse-svg-path": "0.1.2"
   }
 }
