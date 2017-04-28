@@ -23,5 +23,8 @@
     "build": "mkdir -p build/assets && webpack --optimize-minimize && cp -r src/index.html src/assets build/"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "bezier-js": "2.2.3"
+  }
 }
