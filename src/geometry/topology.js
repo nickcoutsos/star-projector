@@ -1,5 +1,5 @@
-import {Box3, Line3, Plane, Ray, Triangle, Vector3} from 'three';
-
+import {Box3, CubicBezierCurve3, Line3, Matrix4, Plane, Quaternion, Ray, Triangle, Vector3} from 'three';
+import './cubic-bezier-curve'
 const EPSILON = 0.000001;
 
 /**
@@ -276,4 +276,127 @@ export function projectLineSegment(topology, a, b) {
 
   segments.push({ polygon: polygonB.index, edge: [segments[segments.length-1].edge[1], b] });
   return segments;
+}
+
+export function projectCurves(topology, direction, curves) {
+  const ra = Math.atan2(direction.z, direction.x)
+  const dec = Math.asin(direction.y)
+  let transformation = new Matrix4()
+    .makeRotationFromQuaternion(
+				new Quaternion().multiplyQuaternions(
+          new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), 3/2*Math.PI - ra),
+          new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), dec)
+				)
+			)
+
+  curves = curves.map(curve => curve.clone().applyMatrix4(transformation));
+
+  return projectCurvesToTopology(topology, direction, curves);
+}
+
+function projectCurvesToTopology(topology, direction, curves) {
+  const projectedCurves = []
+
+  curves.forEach(curve => {
+    const last = projectedCurves[projectedCurves.length -1]
+    projectedCurves.push(...projectCurveToTopology(
+      topology, direction, curve, last && (last.next || last.polygon), projectedCurves.length
+    ))
+  })
+
+  return projectedCurves.map(({curve}) => curve)
+}
+
+/**
+ * Project a single bezier curve onto the target topology.
+ *
+ * A projected curve may be split into multiple curves
+ */
+function projectCurveToTopology(topology, direction, curve, preferPolygon=null) {
+  const [first, ...rest] = curve.getControlPoints();
+  let polygon, point;
+
+  if (preferPolygon) {
+    polygon = preferPolygon;
+    point = new Ray(first.clone(), direction).intersectPlane(polygon.plane)
+  } else {
+    ({polygon, point} = projectVector(direction, topology, first))
+  }
+
+  const projected = new CubicBezierCurve3(
+    point,
+    ...rest.map(point => {
+      return new Ray(
+        point.clone(),
+        direction
+      ).intersectPlane(polygon.plane)
+    })
+  );
+
+  const intersection = findFirstCurvePolygonIntersection(projected, polygon);
+
+  if (!intersection) {
+    return [{curve: projected, polygon}];
+  }
+
+  const initial = projected.splitAt(intersection.t)[0]
+  const remainder = curve.splitAt(intersection.t)[1];
+
+  // If the "intersection" happens (for all practical uses) at the very end of
+  // the curve then go ahead and return the full curve becaue otherwise the next
+  // curve will think it's intersecting "too close" to the beginning for the
+  // intersection to be genuine. Instead we also indicate that the next curve
+  // should project onto the polygon sharing the intersected edge.
+  if (1 - intersection.t < EPSILON) {
+    return [{
+      curve: initial,
+      next: intersection.edge.shared.poly,
+      polygon
+    }]
+  }
+
+  return [
+    {curve: initial, polygon},
+    ...projectCurveToTopology(
+      topology, direction, remainder, intersection.edge.shared.poly
+    )
+  ];
+}
+
+function curveEndsCloseEnoughToLine(curve, line) {
+  const t = line.closestPointToPointParameter(curve.v3)
+
+  return (
+    t > 0 &&
+    t < 1 &&
+    line.at(t)
+      .distanceToSquared(curve.v3) < EPSILON*EPSILON
+  )
+}
+
+function findFirstCurvePolygonIntersection(curve, polygon) {
+  let {edges} = polygon
+  const back = new Vector3(0, 0, 1)
+  const angle = back.angleTo(polygon.normal)
+  const axis = new Vector3().crossVectors(polygon.normal, back).normalize()
+  const matrix = new Matrix4().makeRotationAxis(axis, angle);
+
+
+  edges = polygon.edges.map(edge => Object.assign({}, edge, {line: edge.line.clone().applyMatrix4(matrix)}));
+  curve = curve.clone().applyMatrix4(matrix);
+  curve.getControlPoints().forEach(point => { point.z = 0; });
+  edges.forEach(({line}) => { line.start.z = line.end.z = 0; });
+
+  for (let edge of edges) {
+    const intersections = curve.intersectLine(edge.line).filter(({t}) => t > EPSILON);
+    if (!intersections.length) {
+      if (curveEndsCloseEnoughToLine(curve, edge.line)) {
+        return {edge, t: 1}
+      }
+
+      continue;
+    }
+
+    return {t: intersections[0].t, edge}
+  }
 }
