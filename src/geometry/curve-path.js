@@ -14,6 +14,17 @@ const coords = (points, value) => {
   return points
 }
 
+CurvePath.prototype.getLineSegments = function(divisions) {
+  return this
+    .createPointsGeometry(divisions).vertices
+    .reduce((segments, p, i, array) => {
+      if (i < array.length - 1) {
+        segments.push(p, array[i + 1])
+      }
+      return segments
+    }, [])
+}
+
 CurvePath.fromSvg = function(description) {
   const descriptions = parseSvgPath(description)
   const path = new CurvePath()

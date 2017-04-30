@@ -304,7 +304,7 @@ function projectCurvesToTopology(topology, direction, curves) {
     ))
   })
 
-  return projectedCurves.map(({curve}) => curve)
+  return projectedCurves
 }
 
 /**

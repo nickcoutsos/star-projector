@@ -1,6 +1,8 @@
 import * as three from 'three';
-import {getTopology, projectVector, projectLineSegment} from './geometry/topology';
+import {getTopology, projectVector, projectLineSegment, projectCurves} from './geometry/topology';
 import {constructHierarchicalMesh} from './geometry/hierarchical-mesh';
+import {fivePointStar} from './shapes/star'
+import './geometry/curve-path'
 
 function o(constructor, props, children=[]) {
   let node = Object.assign(new constructor, props);
@@ -33,6 +35,13 @@ export default function project(polyhedron, stars, asterisms) {
   let hierarchicalMesh = constructHierarchicalMesh(topology);
   let objectByPolygon = {};
 
+  const asterismStars = asterisms.reduce((stars, asterism) => {
+    asterism.stars.forEach(id => {
+      stars.indexOf(id) === -1 && stars.push(id)
+    })
+    return stars
+  }, [])
+
   /// before getting started, fill in some containers for each polygon in the
   /// hierarchical mesh.
   hierarchicalMesh.traverse(obj => {
@@ -46,12 +55,18 @@ export default function project(polyhedron, stars, asterisms) {
   /// project stars onto topology
   let projectedStars = stars.map(star => {
     let {rightAscension, declination} = star;
-    let {polygon, point} = projectVector(
-      vectorFromAngles(rightAscension, declination),
-      topology
-    );
+    const direction = vectorFromAngles(rightAscension, declination)
+    const {polygon, point} = projectVector(direction, topology)
 
-    return {star, polygon, point};
+    if (star.magnitude < 2 || asterismStars.indexOf(star.id) > -1) {
+      return {
+        curves: projectCurves(topology, direction, fivePointStar),
+        point,
+        star
+      }
+    }
+
+    return { star, point, polygon }
   });
 
   /// project asterism lines onto topology
@@ -93,7 +108,7 @@ export default function project(polyhedron, stars, asterisms) {
     let polygon = obj.userData.node && obj.userData.node.poly;
     if (!polygon) return;
 
-    let stars = projectedStars.filter(s => s.polygon === polygon),
+    let points = projectedStars.filter(s => s.polygon === polygon),
       {fold, cuts} = projectedEdges.find(e => e.polygon === polygon),
       asterisms = projectedAsterisms
         .filter(a => a.polygon === polygon.index)
@@ -103,8 +118,30 @@ export default function project(polyhedron, stars, asterisms) {
           return map;
         }, {});
 
+    const starPaths = projectedStars.reduce((paths, star) => {
+      if (!star.curves || !star.curves.some(curve => curve.polygon === polygon)) return paths
+
+      const path = new three.CurvePath()
+
+      star.curves
+        .filter(curve => curve.polygon === polygon)
+        .forEach(({curve}) => path.add(curve))
+
+      paths.push(path)
+
+      return paths
+    }, [])
+
     obj.add(
-      o(three.Points, {name: 'stars', geometry: o(three.Geometry, {vertices: stars.map(s => s.point)})}),
+      o(three.Points, {name: 'stars', geometry: o(three.Geometry, {vertices: points.map(s => s.point)})}),
+      o(three.LineSegments, {
+        geometry: o(three.Geometry, {
+          vertices: [].concat(
+            ...starPaths.map(path => path.getLineSegments(10))
+          )
+        }),
+        material: new three.LineBasicMaterial({color: 0xffffff})
+      }),
       o(three.Mesh, {geometry: o(three.Geometry, {vertices: polygon.vertices.slice(), faces: polygon.triangles.map(({a, b, c}) => new three.Face3(...[a,b,c].map(v => polygon.vertices.indexOf(v))))})}),
       o(
         three.Object3D,
