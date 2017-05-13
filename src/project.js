@@ -2,7 +2,7 @@ import * as three from 'three';
 import {getTopology, projectVector, projectLineSegment, projectCurves} from './geometry/topology';
 import {constructHierarchicalMesh} from './geometry/hierarchical-mesh';
 import {fivePointStar} from './shapes/star'
-import './geometry/curve-path'
+import './extensions/curve-path'
 
 function o(constructor, props, children=[]) {
   let node = Object.assign(new constructor, props);

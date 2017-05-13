@@ -1,5 +1,5 @@
 import {Box3, CubicBezierCurve3, Line3, Matrix4, Plane, Quaternion, Ray, Triangle, Vector3} from 'three';
-import './cubic-bezier-curve'
+import '../extensions/cubic-bezier-curve'
 const EPSILON = 0.000001;
 
 /**
