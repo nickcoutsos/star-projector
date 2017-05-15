@@ -60,7 +60,7 @@ export default function project(polyhedron, stars, asterisms) {
 
     if (star.magnitude < 2 || asterismStars.indexOf(star.id) > -1) {
       return {
-        curves: topology.projectCurvePath(fivePointStar, direction),
+        paths: topology.projectCurvePath(fivePointStar, direction),
         point,
         star
       }
@@ -116,15 +116,8 @@ export default function project(polyhedron, stars, asterisms) {
         }, {});
 
     const starPaths = projectedStars.reduce((paths, star) => {
-      if (!star.curves || !star.curves.some(curve => curve.polygon === polygon)) return paths
-
-      const path = new three.CurvePath()
-
-      star.curves
-        .filter(curve => curve.polygon === polygon)
-        .forEach(({curve}) => path.add(curve))
-
-      paths.push(path)
+      if (!star.paths) return paths
+      paths.push(...star.paths.filter(path => path.polygon === polygon))
 
       return paths
     }, [])

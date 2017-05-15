@@ -1,4 +1,4 @@
-import {CubicBezierCurve3, Vector3} from 'three'
+import {CubicBezierCurve3, CurvePath, Vector3} from 'three'
 
 const polar = (r, t) => new Vector3(r*Math.cos(t), r*Math.sin(t), 0)
 
@@ -7,10 +7,10 @@ const bezierStar = (numPoints, radius, innerRadius) => {
     innerRadius = radius * 0.5
   }
 
-  let b = -Math.PI / 2
-  let a = 2 * Math.PI / numPoints
-  let a2 = a / 2
-  let aN = a / numPoints
+  const b = -Math.PI / 2
+  const a = 2 * Math.PI / numPoints
+  const a2 = a / 2
+  const aN = a / numPoints
 
   return '-'.repeat(numPoints - 1).split('-')
     .map((_,i) => new CubicBezierCurve3(
@@ -19,6 +19,10 @@ const bezierStar = (numPoints, radius, innerRadius) => {
       polar(innerRadius, b + i * a + a2 + aN + aN),
       polar(radius, b + (i + 1) * a + a2)
     ))
+    .reduce(
+      (path, curve) => (path.add(curve), path),
+      new CurvePath()
+    )
 }
 
 export default bezierStar
