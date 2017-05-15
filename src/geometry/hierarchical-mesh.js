@@ -40,6 +40,6 @@ export function constructHierarchicalMesh(topology) {
     );
   })(tree);
 
-  hierarchy.up = top.normal.clone();
+  hierarchy.up = top.plane.normal.clone();
   return hierarchy;
 }

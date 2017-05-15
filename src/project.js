@@ -139,7 +139,7 @@ export default function project(polyhedron, stars, asterisms) {
         }),
         material: new three.LineBasicMaterial({color: 0xffffff})
       }),
-      o(three.Mesh, {geometry: o(three.Geometry, {vertices: polygon.vertices.slice(), faces: polygon.triangles.map(({a, b, c}) => new three.Face3(...[a,b,c].map(v => polygon.vertices.indexOf(v))))})}),
+      o(three.Mesh, {geometry: o(three.Geometry, {vertices: polygon.points.slice(), faces: polygon.triangles.map(({a, b, c}) => new three.Face3(...[a,b,c].map(v => polygon.points.indexOf(v))))})}),
       o(
         three.Object3D,
         {name: 'asterisms'},

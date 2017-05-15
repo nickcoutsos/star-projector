@@ -15,7 +15,7 @@ export default class Topology {
     edgesFromPolygons(polygons).forEach((edges, i) => polygons[i].edges = edges)
 
     this.polygons = polygons
-    this.dihedral = polygon.normal.angleTo(polygon.edges[0].shared.poly.normal)
+    this.dihedral = polygon.plane.normal.angleTo(polygon.edges[0].shared.poly.plane.normal)
     this.faceRadius = polygon.center.length()
   }
 

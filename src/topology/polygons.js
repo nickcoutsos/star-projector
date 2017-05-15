@@ -3,7 +3,6 @@ import '../extensions'
 
 const EPSILON = 1e-6
 
-
 export default function organizePolygons(faces, vertices) {
   const triangleFactory = makeTriangleFactory(vertices)
   return groupFacesByNormal(faces)
@@ -42,8 +41,6 @@ const getPolygonFromGroup = ({normal, faces}, makeTriangle) => {
   return {
     plane: new Plane().setFromNormalAndCoplanarPoint(normal, center),
     points: sortPoints(points, normal, center),
-    vertices: sortPoints(points, normal, center),
-    normal,
     triangles,
     center
   }
@@ -66,7 +63,7 @@ const sortPoints = (points, normal, center) => {
 }
 
 const isSimilarNormal = normal => (
-  polygon => normal.angleTo(polygon.normal) < EPSILON
+  group => normal.angleTo(group.normal) < EPSILON
 )
 
 const uniqueVertices = (vertices, vertex) => {
