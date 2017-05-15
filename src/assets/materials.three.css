@@ -21,8 +21,8 @@
 
 .stars {
   type: PointsMaterial;
-  color: white;
-  size: 0.0125;
+  color: hsl(0, 0%, 100%);
+  size: 0.00625;
 }
 
 .poly-face {
