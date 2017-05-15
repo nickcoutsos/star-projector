@@ -1,5 +1,6 @@
 import {CubicBezierCurve3, CurvePath, Vector3} from 'three'
 import parseSvgPath from 'parse-svg-path'
+import './cubic-bezier-curve'
 
 const coords = (points, value) => {
   let last = points[points.length - 1]
@@ -23,6 +24,18 @@ CurvePath.prototype.getLineSegments = function(divisions) {
       }
       return segments
     }, [])
+}
+
+CurvePath.prototype.toArray = function() {
+  return this.curves.map(curve => curve.toArray())
+}
+
+CurvePath.fromArray = function(curves) {
+  const path = new CurvePath()
+
+  curves.map(curve => path.add(CubicBezierCurve3.fromArray(curve)))
+
+  return path
 }
 
 CurvePath.fromSvg = function(description) {

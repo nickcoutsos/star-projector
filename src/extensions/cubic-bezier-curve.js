@@ -1,4 +1,5 @@
 import {CubicBezierCurve3} from 'three';
+import './vector'
 import Bezier from 'bezier-js'
 
 function interpolate(points, t) {
@@ -9,6 +10,10 @@ function interpolate(points, t) {
     );
 
   return interpolated
+}
+
+CubicBezierCurve3.prototype.toArray = function() {
+  return this.getControlPoints().map(point => point.toArray())
 }
 
 CubicBezierCurve3.prototype.getControlPoints = function() {
