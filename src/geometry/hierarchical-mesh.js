@@ -1,10 +1,9 @@
 import {Object3D} from 'three';
-import {travel} from './topology';
 import {getGeometryNet} from './nets';
 
 export function constructHierarchicalMesh(topology) {
   let top = topology.polygons[0],
-    tree = travel(
+    tree = topology.travel(
       top.edges[0],
       getGeometryNet(topology)
     );

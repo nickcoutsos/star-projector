@@ -1,5 +1,5 @@
 import * as three from 'three';
-import {getTopology, projectVector, projectLineSegment, projectCurves} from './geometry/topology';
+import Topology from './topology'
 import {constructHierarchicalMesh} from './geometry/hierarchical-mesh';
 import {fivePointStar} from './shapes/star'
 import './extensions/curve-path'
@@ -31,7 +31,7 @@ let PAIR = (pairs, val) => {
 };
 
 export default function project(polyhedron, stars, asterisms) {
-  let topology = getTopology(polyhedron);
+  let topology = new Topology(polyhedron)
   let hierarchicalMesh = constructHierarchicalMesh(topology);
   let objectByPolygon = {};
 
@@ -56,11 +56,11 @@ export default function project(polyhedron, stars, asterisms) {
   let projectedStars = stars.map(star => {
     let {rightAscension, declination} = star;
     const direction = vectorFromAngles(rightAscension, declination)
-    const {polygon, point} = projectVector(direction, topology)
+    const {polygon, point} = topology.projectVector(direction)
 
     if (star.magnitude < 2 || asterismStars.indexOf(star.id) > -1) {
       return {
-        curves: projectCurves(topology, direction, fivePointStar),
+        curves: topology.projectCurvePath(fivePointStar, direction),
         point,
         star
       }
@@ -74,10 +74,7 @@ export default function project(polyhedron, stars, asterisms) {
     let pairs = asterism.stars.map(id => projectedStars.find(s => s.star.id === id)).reduce(PAIR, [[]]);
     return [].concat(
       ...pairs.map(pair =>
-        projectLineSegment(
-          topology,
-          ...pair.map(({point}) => point)
-        )
+        topology.projectLineSegment(...pair.map(({point}) => point))
       )
     ).map(
       segment => Object.assign({asterism}, segment)
