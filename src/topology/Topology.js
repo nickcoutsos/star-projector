@@ -1,9 +1,6 @@
-import {Ray, Vector3} from 'three'
-import organizePolygons from './polygons'
+import organizePolygons, { pointInPolygon } from './polygons'
 import edgesFromPolygons from './edges'
 import * as projections from './projections'
-
-const EPSILON = 1e-6
 
 export default class Topology {
   constructor(geometry) {
@@ -24,13 +21,9 @@ export default class Topology {
   }
 
   projectVector(vector) {
-    let ray = new Ray(new Vector3(), vector);
-    let point, polygon = this.polygons.find(polygon => {
-      point = ray.intersectPlane(polygon.plane)
-      return point && pointInPolygon(point, polygon) && point
-    });
-
-    return polygon && {polygon, point}
+    return Promise.resolve(
+      projections.vector(this, vector)
+    )
   }
 
   /**
@@ -46,7 +39,9 @@ export default class Topology {
    *  `polygon` is the index of the polygon in `topology` on which they lie.
    */
   projectLineSegment(a, b) {
-    return projections.line(this, a, b)
+    return Promise.resolve(
+      projections.line(this, a, b)
+    )
   }
 
   /**
@@ -56,7 +51,9 @@ export default class Topology {
    * @param {Vector3} direction
    */
   projectCurvePath(path, direction) {
-    return projections.path(this, path, direction)
+    return Promise.resolve(
+      projections.path(this, path, direction)
+    )
   }
 
   travel(source, next) {
@@ -84,8 +81,3 @@ export default class Topology {
     }
   }
 }
-
-const pointInPolygon = (point, {plane, triangles}) => (
-  Math.abs(plane.distanceToPoint(point)) < EPSILON &&
-  triangles.some(triangle => triangle.containsPoint(point))
-)

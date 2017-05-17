@@ -1,4 +1,5 @@
 import {CubicBezierCurve3, Matrix4, Ray, Vector3} from 'three'
+import projectVector from './vector'
 import '../../extensions'
 
 const EPSILON = 1e-6
@@ -29,7 +30,7 @@ function projectCurve(topology, direction, curve, preferPolygon=null) {
     polygon = preferPolygon;
     point = new Ray(first.clone(), direction).intersectPlane(polygon.plane)
   } else {
-    ({polygon, point} = topology.projectVector(direction, first))
+    ({polygon, point} = projectVector(topology, direction, first))
   }
 
   const projected = new CubicBezierCurve3(

@@ -32,8 +32,6 @@ let PAIR = (pairs, val) => {
 
 export default function project(polyhedron, stars, asterisms) {
   let topology = new Topology(polyhedron)
-  let hierarchicalMesh = constructHierarchicalMesh(topology);
-  let objectByPolygon = {};
 
   const asterismStars = asterisms.reduce((stars, asterism) => {
     asterism.stars.forEach(id => {
@@ -41,6 +39,43 @@ export default function project(polyhedron, stars, asterisms) {
     })
     return stars
   }, [])
+
+  return Promise.all(stars.map(star => {
+    let {rightAscension, declination} = star;
+    const direction = vectorFromAngles(rightAscension, declination)
+    return topology.projectVector(direction).then(({polygon, point}) => {
+      if (star.magnitude < 2 || asterismStars.indexOf(star.id) > -1) {
+        return topology.projectCurvePath(fivePointStar, direction)
+          .then(paths => ({ paths, point, star }))
+      }
+
+      return { star, point, polygon }
+    })
+  })).then(projectedStars => {
+    /// project asterism lines onto topology
+    return Promise.all(asterisms.map(asterism => {
+      const pairs = asterism.stars
+        .map(id => projectedStars.find(s => s.star.id === id).point)
+        .reduce(PAIR, [[]])
+
+      return Promise.all(pairs.map(pair => topology.projectLineSegment(...pair)))
+        .then(segments => [].concat(...segments))
+        .then(segments => segments.map(segment => Object.assign(
+          {asterism}, segment
+        )))
+    }))
+    .then(segments => [].concat(...segments))
+    .then(projectedAsterisms => build(
+      topology,
+      projectedStars,
+      projectedAsterisms
+    ))
+  })
+}
+
+const build = (topology, projectedStars, projectedAsterisms) => {
+  let hierarchicalMesh = constructHierarchicalMesh(topology);
+  let objectByPolygon = {};
 
   /// before getting started, fill in some containers for each polygon in the
   /// hierarchical mesh.
@@ -51,36 +86,6 @@ export default function project(polyhedron, stars, asterisms) {
     // now for anything related to a polygon we can lookup the matrix transform
     objectByPolygon[node.poly.index] = obj;
   });
-
-  /// project stars onto topology
-  let projectedStars = stars.map(star => {
-    let {rightAscension, declination} = star;
-    const direction = vectorFromAngles(rightAscension, declination)
-    const {polygon, point} = topology.projectVector(direction)
-
-    if (star.magnitude < 2 || asterismStars.indexOf(star.id) > -1) {
-      return {
-        paths: topology.projectCurvePath(fivePointStar, direction),
-        point,
-        star
-      }
-    }
-
-    return { star, point, polygon }
-  });
-
-  /// project asterism lines onto topology
-  let projectedAsterisms = [].concat(...asterisms.map(asterism => {
-    let pairs = asterism.stars.map(id => projectedStars.find(s => s.star.id === id)).reduce(PAIR, [[]]);
-    return [].concat(
-      ...pairs.map(pair =>
-        topology.projectLineSegment(...pair.map(({point}) => point))
-      )
-    ).map(
-      segment => Object.assign({asterism}, segment)
-    );
-  }));
-
 
   /// Project edge and cut lines
   let projectedEdges = topology.polygons.map(polygon => {
@@ -99,7 +104,6 @@ export default function project(polyhedron, stars, asterisms) {
 
     return {polygon, fold, cuts};
   });
-
 
   hierarchicalMesh.traverse(obj => {
     let polygon = obj.userData.node && obj.userData.node.poly;
@@ -149,7 +153,7 @@ export default function project(polyhedron, stars, asterisms) {
     }
   });
 
-  return Promise.resolve(hierarchicalMesh)
+  return hierarchicalMesh
 }
 
 const starPointsObject = points => o(

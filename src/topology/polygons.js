@@ -12,6 +12,11 @@ export default function organizePolygons(faces, vertices) {
     ))
 }
 
+export const pointInPolygon = (point, {plane, triangles}) => (
+  Math.abs(plane.distanceToPoint(point)) < EPSILON &&
+  triangles.some(triangle => triangle.containsPoint(point))
+)
+
 const groupFacesByNormal = faces => faces.reduce(
   (groups, face) => {
     let group = groups.find(isSimilarNormal(face.normal))
