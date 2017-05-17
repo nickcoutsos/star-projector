@@ -123,49 +123,12 @@ export default function project(polyhedron, stars, asterisms) {
     }, [])
 
     obj.add(
-      o(three.Points, {name: 'stars', geometry: o(three.Geometry, {vertices: points.map(s => s.point)})}),
-      o(three.LineSegments, {
-        geometry: o(three.Geometry, {
-          vertices: [].concat(
-            ...starPaths.map(path => path.getLineSegments(10))
-          )
-        }),
-        material: new three.LineBasicMaterial({color: 0xffffff})
-      }),
-      o(three.Mesh, {
-        geometry: o(three.Geometry, {
-          vertices: polygon.points.slice(),
-          faces: polygon.triangles.map(({a, b, c}) => new three.Face3(...[a,b,c].map(v => polygon.points.indexOf(v))))
-        })
-      }),
-      o(
-        three.Object3D,
-        {name: 'asterisms'},
-        Object.keys(asterisms).map(name =>
-          o(
-            three.LineSegments,
-            {
-              name: `asterism-${name}`,
-              userData: {asterism: {name}, type: 'asterism'},
-              geometry: o(three.Geometry, {vertices: [].concat(...asterisms[name])})
-            }
-          )
-        )
-      ),
-      fold && o(
-        three.LineSegments,
-        {
-          userData: {type: 'fold'},
-          geometry: o(three.Geometry, {vertices: fold})
-        }
-      ) || o(three.Object3D),
-      o(
-        three.LineSegments,
-        {
-          userData: {type: 'cuts'},
-          geometry: o(three.Geometry, {vertices: [].concat(...cuts)})
-        }
-      )
+      polyFaceObject(polygon),
+      fold && polyFoldLinesObject(fold) || o(three.Object3D),
+      polyCutLinesObject(cuts),
+      starPointsObject(points),
+      starLinesObject(starPaths),
+      asterismLinesObject(asterisms)
     );
   });
 
@@ -188,3 +151,70 @@ export default function project(polyhedron, stars, asterisms) {
 
   return hierarchicalMesh;
 }
+
+const starPointsObject = points => o(
+  three.Points, {
+    name: 'stars',
+    geometry: o(
+      three.Geometry,
+      { vertices: points.map(s => s.point) }
+    )
+  }
+)
+
+const starLinesObject = paths => o(
+  three.LineSegments, {
+    material: new three.LineBasicMaterial({color: 0xffffff}),
+    geometry: o(
+      three.Geometry, {
+        vertices: [].concat(
+          ...paths.map(path => path.getLineSegments(10))
+        )
+      }
+    )
+  }
+)
+
+const polyFaceObject = polygon => o(
+  three.Mesh, {
+    geometry: o(three.Geometry, {
+      vertices: polygon.points.slice(),
+      faces: polygon.triangles.map(({a, b, c}) => (
+        new three.Face3(
+          ...[a,b,c]
+            .map(v => polygon.points.indexOf(v))
+        )
+      ))
+    })
+  }
+)
+
+const asterismLinesObject = asterisms => o(
+  three.Object3D,
+  {name: 'asterisms'},
+  Object.keys(asterisms).map(name =>
+    o(three.LineSegments, {
+      name: `asterism-${name}`,
+      userData: {asterism: {name}, type: 'asterism'},
+      geometry: o(three.Geometry, {
+        vertices: [].concat(...asterisms[name])
+      })
+    })
+  )
+)
+
+const polyFoldLinesObject = fold => o(
+  three.LineSegments, {
+    userData: {type: 'fold'},
+    geometry: o(three.Geometry, {vertices: fold})
+  }
+)
+
+const polyCutLinesObject = cuts => o(
+  three.LineSegments, {
+    userData: {type: 'cuts'},
+    geometry: o(three.Geometry, {
+      vertices: [].concat(...cuts)
+    })
+  }
+)
