@@ -149,7 +149,7 @@ export default function project(polyhedron, stars, asterisms) {
     }
   });
 
-  return hierarchicalMesh;
+  return Promise.resolve(hierarchicalMesh)
 }
 
 const starPointsObject = points => o(

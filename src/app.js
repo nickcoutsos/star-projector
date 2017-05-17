@@ -1,8 +1,11 @@
 import Vue from 'vue';
+import vueAsyncComputed from 'vue-async-computed'
 import * as three from 'three';
 import * as catalogs from './catalogs';
 import project from './project';
 import './components/preview';
+
+Vue.use(vueAsyncComputed)
 
 
 const AVAILABLE_GEOMETRIES = {
@@ -72,7 +75,7 @@ new Vue({
     }
   },
 
-  computed: {
+  asyncComputed: {
     object() {
       return project(
         AVAILABLE_GEOMETRIES[this.selectedGeometry],
