@@ -8,5 +8,5 @@ export default function projectVector(topology, vector) {
     return point && pointInPolygon(point, polygon) && point
   });
 
-  return polygon && {polygon, point}
+  return polygon && {polygonId: polygon.index, point}
 }

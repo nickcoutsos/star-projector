@@ -24,13 +24,14 @@ export default function projectCurves(topology, direction, curves) {
  */
 function projectCurve(topology, direction, curve, preferPolygon=null) {
   const [first, ...rest] = curve.getControlPoints();
-  let polygon, point;
+  let polygon, polygonId, point;
 
   if (preferPolygon) {
     polygon = preferPolygon;
     point = new Ray(first.clone(), direction).intersectPlane(polygon.plane)
   } else {
-    ({polygon, point} = projectVector(topology, direction, first))
+    ({polygonId, point} = projectVector(topology, direction, first))
+    polygon = topology.polygons[polygonId]
   }
 
   const projected = new CubicBezierCurve3(

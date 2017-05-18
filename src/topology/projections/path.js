@@ -18,8 +18,9 @@ export default function projectCurvePath(topology, path, direction) {
 
   return projectCurves(topology, direction, curves)
     .reduce((paths, {curve, polygon}) => {
-      let path = paths.find(path => path.polygon.index === polygon.index)
-      if (!path) paths.push(path = Object.assign(new CurvePath(), {polygon}))
+      const polygonId = polygon.index
+      let path = paths.find(path => path.polygonId === polygonId)
+      if (!path) paths.push(path = Object.assign(new CurvePath(), {polygonId}))
 
       path.add(curve)
       return paths

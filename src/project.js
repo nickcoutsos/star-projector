@@ -43,13 +43,13 @@ export default function project(polyhedron, stars, asterisms) {
   return Promise.all(stars.map(star => {
     let {rightAscension, declination} = star;
     const direction = vectorFromAngles(rightAscension, declination)
-    return topology.projectVector(direction).then(({polygon, point}) => {
+    return topology.projectVector(direction).then(({polygonId, point}) => {
       if (star.magnitude < 2 || asterismStars.indexOf(star.id) > -1) {
         return topology.projectCurvePath(fivePointStar, direction)
           .then(paths => ({ paths, point, star }))
       }
 
-      return { star, point, polygon }
+      return { star, point, polygonId }
     })
   })).then(projectedStars => {
     /// project asterism lines onto topology
@@ -89,6 +89,7 @@ const build = (topology, projectedStars, projectedAsterisms) => {
 
   /// Project edge and cut lines
   let projectedEdges = topology.polygons.map(polygon => {
+    const polygonId = polygon.index
     let obj = objectByPolygon[polygon.index],
       node = obj.userData.node,
       parent = obj.userData.parent,
@@ -102,17 +103,18 @@ const build = (topology, projectedStars, projectedAsterisms) => {
       ))
       .map(({line}) => ([line.start, line.end]));
 
-    return {polygon, fold, cuts};
+    return {polygonId, fold, cuts};
   });
 
   hierarchicalMesh.traverse(obj => {
-    let polygon = obj.userData.node && obj.userData.node.poly;
+    const polygon = obj.userData.node && obj.userData.node.poly;
+    const polygonId = polygon && polygon.index
     if (!polygon) return;
 
-    let points = projectedStars.filter(s => s.polygon === polygon),
-      {fold, cuts} = projectedEdges.find(e => e.polygon === polygon),
+    let points = projectedStars.filter(s => s.polygonId === polygonId),
+      {fold, cuts} = projectedEdges.find(e => e.polygonId === polygonId),
       asterisms = projectedAsterisms
-        .filter(a => a.polygon === polygon.index)
+        .filter(a => a.polygonId === polygonId)
         .reduce((map, {asterism, edge}) => {
           if (!map[asterism.name]) map[asterism.name] = [];
           map[asterism.name].push(edge);
@@ -121,7 +123,7 @@ const build = (topology, projectedStars, projectedAsterisms) => {
 
     const starPaths = projectedStars.reduce((paths, star) => {
       if (!star.paths) return paths
-      paths.push(...star.paths.filter(path => path.polygon === polygon))
+      paths.push(...star.paths.filter(path => path.polygonId === polygonId))
 
       return paths
     }, [])

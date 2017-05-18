@@ -1,14 +1,15 @@
 import {Plane, Ray} from 'three'
+import {pointInPolygon} from '../polygons'
 
 const EPSILON = 1e-6
 
 export default function projectLineSegment(topology, a, b) {
-  let polygonA = topology.findContainingPolygon(a),
-    polygonB = topology.findContainingPolygon(b);
+  const polygonA = topology.polygons.find(p => pointInPolygon(a, p)),//findContainingPolygon(a),
+    polygonB = topology.polygons.find(p => pointInPolygon(b, p))//topology.findContainingPolygon(b);
 
   // If both points are on the same polygon a straight line can connect them.
   if (polygonA === polygonB) {
-    return [{polygon: polygonA.index, edge: [a, b]}];
+    return [{polygonId: polygonA.index, edge: [a, b]}];
   }
 
   // If the points lie in adjacent polygons we use them with the origin to
@@ -20,8 +21,8 @@ export default function projectLineSegment(topology, a, b) {
   if (common) {
     let connection = new Ray(common.point, common.vector.clone()).intersectPlane(coplane);
     return [
-      {polygon: polygonA.index, edge: [a, connection]},
-      {polygon: polygonB.index, edge: [b, connection]}
+      {polygonId: polygonA.index, edge: [a, connection]},
+      {polygonId: polygonB.index, edge: [b, connection]}
     ];
   }
 
@@ -50,15 +51,15 @@ export default function projectLineSegment(topology, a, b) {
   // each intersection contains one point of a pair of line segments
   let polygon = intersections[0].edge.poly.index;
   if (polygon === polygonA.index) polygon = intersections[0].edge.shared.poly.index;
-  let segments = [ {polygon: polygonA.index, edge: [a, intersections[0].point]} ];
+  let segments = [ {polygonId: polygonA.index, edge: [a, intersections[0].point]} ];
 
   intersections.slice(0, -1).forEach(({edge, point}, i) => {
     let next = intersections[i + 1];
-    segments.push({ polygon, edge: [point, next.point] });
+    segments.push({ polygonId: polygon.index, edge: [point, next.point] });
 
     polygon = next.edge.poly.index === polygon ? next.edge.shared.poly.index : next.edge.poly.index;
   });
 
-  segments.push({ polygon: polygonB.index, edge: [segments[segments.length-1].edge[1], b] });
+  segments.push({ polygonId: polygonB.index, edge: [segments[segments.length-1].edge[1], b] });
   return segments;
 }
