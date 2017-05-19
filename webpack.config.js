@@ -22,8 +22,8 @@ module.exports = {
         use: [
           { loader: 'worker-loader' },
           { loader: 'babel-loader' }
-        ]}
-
+        ]
+      }
     ]
   },
   plugins: [
