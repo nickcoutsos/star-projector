@@ -13,8 +13,7 @@ const AVAILABLE_GEOMETRIES = {
   Cube: new three.BoxGeometry(1, 1, 1),
   Octahedron: new three.OctahedronGeometry(),
   Dodecaheron: new three.DodecahedronGeometry(),
-  Icosahedron: new three.IcosahedronGeometry(),
-  'Subdivided Icosahedron': new three.IcosahedronGeometry(1, 1)
+  Icosahedron: new three.IcosahedronGeometry()
 };
 
 new Vue({
@@ -30,8 +29,7 @@ new Vue({
       'Cube',
       'Octahedron',
       'Dodecaheron',
-      'Icosahedron',
-      'Subdivided Icosahedron'
+      'Icosahedron'
     ],
     filters: {
       magnitude: 4.75,
