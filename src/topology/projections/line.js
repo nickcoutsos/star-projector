@@ -55,7 +55,7 @@ const areVectorsInOrder = (...vectors) => {
  * @param {Vector3} pointA
  * @param {Object} polygonB
  * @param {vector3} pointB
- * @returns {Array<Object>} segments ({polygonIndex, [points]})
+ * @returns {Array<Object>} segments ({polygonId, [points]})
  */
 const segmentsFromIntersections = (intersections, polygonA, pointA, polygonB, pointB) => {
   // Pick arbitrary intersection point from polygonA
@@ -69,40 +69,42 @@ const segmentsFromIntersections = (intersections, polygonA, pointA, polygonB, po
   intersections.forEach(intersection => intersection.angle = intersection.point.angleTo(start.point));
   intersections.sort((a, b) => a.angle - b.angle);
 
+  const initialPoint = { polygonId: polygonA.index, point: pointA }
+  const finalPoint = { polygonId: polygonB.index, point: pointB }
+
   // For each intersection generate two points referencing each of the polygons
   // adjacent to the intersected edge, and in a sequence
   // Then reduce this sequence of points to pairs of vertices forming the
   // divided line segments
-  return intersections.reduce((intersectionPoints, {edge, point}) => {
-    const last = intersectionPoints.slice(0, -1)[0]
-    const polygons = [edge.poly.index, edge.shared.poly.index]
-    if (polygons[1] === last) polygons.reverse()
+  return intersections
+    .reduce(connectAdjacentPolygons, [initialPoint])
+    .concat([finalPoint])
+    .reduce(generateSegments, [])
+}
 
-    intersectionPoints.push(
-      { point, polygonIndex: polygons[0] },
-      { point, polygonIndex: polygons[1] }
-    )
 
-    return intersectionPoints
-  }, [{
-    polygonId: polygonA.index,
-    edge: [
-      pointA,
-      intersections[0].point
-    ]
-  }]).concat({
-    polygonId: polygonB.index,
-    point: pointB
-  }).reduce((segments, {polygonIndex, point}, i, points) => {
-    const {point: next} = points[i+1] || {}
+const connectAdjacentPolygons = (intersectionPoints, {edge, point}) => {
+  const last = intersectionPoints.slice(0, -1)[0]
+  const polygons = [edge.poly.index, edge.shared.poly.index]
+  if (polygons[1] === last) polygons.reverse()
 
-    if (next) {
-      segments.push({
-        polygonIndex,
-        edge: [ point, next ]
-      })
-    }
+  intersectionPoints.push(
+    { point, polygonId: polygons[0] },
+    { point, polygonId: polygons[1] }
+  )
 
-    return segments
-  }, [])
+  return intersectionPoints
+}
+
+const generateSegments = (segments, {polygonId, point}, i, points) => {
+  const {point: next} = points[i+1] || {}
+
+  if (next) {
+    segments.push({
+      polygonId,
+      edge: [ point, next ]
+    })
+  }
+
+  return segments
 }
