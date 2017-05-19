@@ -10,12 +10,12 @@
 
 .cut {
   type: LineBasicMaterial;
-  color: #aaaaaa;
+  color: hsl(230, 30%, 40%);
   linewidth: 2;
 }
 
 .fold {
-  color: #9999aa;
+  color: hsl(230, 30%, 30%);
   linewidth: 2;
 }
 
@@ -34,4 +34,12 @@
 }
 .active .poly-face {
   color: hsl(5, 54%, 35%);
+}
+
+.active .cut {
+  color: hsl(5, 30%, 40%);
+}
+
+.active .fold {
+  color: hsl(5, 30%, 30%);
 }

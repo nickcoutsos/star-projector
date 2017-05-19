@@ -18,7 +18,7 @@ export default Vue.component('object-preview', {
 	}),
 
 	created() {
-		this.camera.position.set(0, 0, 3);
+		this.camera.position.set(0, 0, 2);
 		this.camera.lookAt(new Vector3(0, 0, 0));
 		this.wrapper.userData.animate = t => {
 			if (!this.animating) return;
@@ -54,7 +54,7 @@ export default Vue.component('object-preview', {
 
 		let animate = () => {
 			requestAnimationFrame(animate);
-			if (!this.animating && !this.open) this.wrapper.rotation.y += 0.015;
+			if (!this.animating && !this.open) this.wrapper.rotation.y += 0.005;
 			this.renderFrame();
 		}
 		animate();
