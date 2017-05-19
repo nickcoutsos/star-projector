@@ -67,7 +67,7 @@ const sortPoints = (points, normal, center) => {
   return vectors.map(({p}) => p)
 }
 
-const isSimilarNormal = normal => (
+export const isSimilarNormal = normal => (
   group => normal.angleTo(group.normal) < EPSILON
 )
 

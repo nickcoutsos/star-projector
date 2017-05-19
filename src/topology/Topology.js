@@ -9,11 +9,19 @@ export default class Topology {
 
     const polygons = organizePolygons(geometry.faces, this.vertices)
     const polygon = polygons[0]
-    edgesFromPolygons(polygons).forEach((edges, i) => polygons[i].edges = edges)
+    const edges = edgesFromPolygons(polygons)
+
+    edges.forEach((edges, i) => polygons[i].edges = edges)
 
     this.polygons = polygons
     this.dihedral = polygon.plane.normal.angleTo(polygon.edges[0].shared.poly.plane.normal)
     this.faceRadius = polygon.center.length()
+    this.edges = [].concat(...edges).reduce((edges, edge) => {
+      if (!edges.find(({id}) => id === edge.id)) {
+        edges.push(edge)
+      }
+      return edges
+    }, [])
   }
 
   findContainingPolygon(point) {

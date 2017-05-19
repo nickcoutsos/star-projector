@@ -1,65 +1,108 @@
-import {Plane, Ray} from 'three'
-import {pointInPolygon} from '../polygons'
-
-const EPSILON = 1e-6
+import {Plane} from 'three'
+import {pointInPolygon, isSimilarNormal} from '../polygons'
 
 export default function projectLineSegment(topology, a, b) {
-  const polygonA = topology.polygons.find(p => pointInPolygon(a, p)),//findContainingPolygon(a),
-    polygonB = topology.polygons.find(p => pointInPolygon(b, p))//topology.findContainingPolygon(b);
+  const polygonA = topology.polygons.find(p => pointInPolygon(a, p))
+  const polygonB = topology.polygons.find(p => pointInPolygon(b, p))
+  const coplane = new Plane(a.clone().cross(b), 0)
 
   // If both points are on the same polygon a straight line can connect them.
   if (polygonA === polygonB) {
-    return [{polygonId: polygonA.index, edge: [a, b]}];
-  }
-
-  // If the points lie in adjacent polygons we use them with the origin to
-  // describe a plane, and find the intersection of this plane with the common
-  // edge of the adjacent polygons.
-  let coplane = new Plane(a.clone().cross(b), 0),
-    common = polygonA.edges.find(e => e.shared.poly.index == polygonB.index);
-
-  if (common) {
-    let connection = new Ray(common.point, common.vector.clone()).intersectPlane(coplane);
-    return [
-      {polygonId: polygonA.index, edge: [a, connection]},
-      {polygonId: polygonB.index, edge: [b, connection]}
-    ];
+    return [{
+      polygonId: polygonA.index,
+      edge: [a, b]
+    }]
   }
 
   // Find all point intersection between the topology's edges and the plane
   // defined by points `a`, `b`, and the origin excluding those which lie
-  // outside of the arc of `a` and `b` (AxB should approximately equal AxP and
-  // PxB for every P in the set of points found in the initial step.)
-  let intersections = topology.edges
+  // outside of the arc of `a` and `b`
+  const intersections = topology.edges
     .reduce((intersections, edge) => {
-      let point = coplane.intersectLine(edge.line);
-      if (point &&
-          coplane.normal.angleTo(a.clone().cross(point)) < EPSILON &&
-          coplane.normal.angleTo(point.clone().cross(b)) < EPSILON
-        ) {
-        intersections.push(({edge, point}));
+      const point = coplane.intersectLine(edge.line)
+      if (point && areVectorsInOrder(a, point, b)) {
+        intersections.push({ edge, point })
       }
 
-      return intersections;
-    }, []);
+      return intersections
+    }, [])
 
-  // Sort points by their angular distance to the edge closest to `a`.
-  let start = intersections.find(({edge}) => polygonA.edges.find(({id}) => edge.id === id));
+  return segmentsFromIntersections(intersections, polygonA, a, polygonB, b)
+}
+
+/**
+ * Determine whether or not coplanar vectors a,b,c wind in a consistent direction
+ *
+ * @param {Vector3} ...vectors two or more coplanar vectors
+ * @returns {Boolean}
+ */
+const areVectorsInOrder = (...vectors) => {
+  const normal = vectors[0].clone().cross(vectors[vectors.length - 1])
+  const normalIsCloseEnough = isSimilarNormal(normal)
+
+  return vectors
+    .slice(0, -1)
+    .map((v, i) => v.clone().cross(vectors[i + 1]))
+    .map(normal => ({normal}))
+    .every(normalIsCloseEnough)
+}
+
+/**
+ * Generate line segments connecting pointA in polygonA to pointB in polygonB
+ *
+ * @param {Array} intersections
+ * @param {Object} polygonA
+ * @param {Vector3} pointA
+ * @param {Object} polygonB
+ * @param {vector3} pointB
+ * @returns {Array<Object>} segments ({polygonIndex, [points]})
+ */
+const segmentsFromIntersections = (intersections, polygonA, pointA, polygonB, pointB) => {
+  // Pick arbitrary intersection point from polygonA
+  const start = intersections.find(
+    ({edge}) => polygonA.edges.find(
+      ({id}) => edge.id === id
+    )
+  )
+
+  // Order points according to their angular distance `start`
   intersections.forEach(intersection => intersection.angle = intersection.point.angleTo(start.point));
   intersections.sort((a, b) => a.angle - b.angle);
 
-  // each intersection contains one point of a pair of line segments
-  let polygon = intersections[0].edge.poly.index;
-  if (polygon === polygonA.index) polygon = intersections[0].edge.shared.poly.index;
-  let segments = [ {polygonId: polygonA.index, edge: [a, intersections[0].point]} ];
+  // For each intersection generate two points referencing each of the polygons
+  // adjacent to the intersected edge, and in a sequence
+  // Then reduce this sequence of points to pairs of vertices forming the
+  // divided line segments
+  return intersections.reduce((intersectionPoints, {edge, point}) => {
+    const last = intersectionPoints.slice(0, -1)[0]
+    const polygons = [edge.poly.index, edge.shared.poly.index]
+    if (polygons[1] === last) polygons.reverse()
 
-  intersections.slice(0, -1).forEach(({edge, point}, i) => {
-    let next = intersections[i + 1];
-    segments.push({ polygonId: polygon.index, edge: [point, next.point] });
+    intersectionPoints.push(
+      { point, polygonIndex: polygons[0] },
+      { point, polygonIndex: polygons[1] }
+    )
 
-    polygon = next.edge.poly.index === polygon ? next.edge.shared.poly.index : next.edge.poly.index;
-  });
+    return intersectionPoints
+  }, [{
+    polygonId: polygonA.index,
+    edge: [
+      pointA,
+      intersections[0].point
+    ]
+  }]).concat({
+    polygonId: polygonB.index,
+    point: pointB
+  }).reduce((segments, {polygonIndex, point}, i, points) => {
+    const {point: next} = points[i+1] || {}
 
-  segments.push({ polygonId: polygonB.index, edge: [segments[segments.length-1].edge[1], b] });
-  return segments;
+    if (next) {
+      segments.push({
+        polygonIndex,
+        edge: [ point, next ]
+      })
+    }
+
+    return segments
+  }, [])
 }
