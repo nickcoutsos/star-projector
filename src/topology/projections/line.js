@@ -84,7 +84,7 @@ const segmentsFromIntersections = (intersections, polygonA, pointA, polygonB, po
 
 
 const connectAdjacentPolygons = (intersectionPoints, {edge, point}) => {
-  const last = intersectionPoints.slice(0, -1)[0]
+  const last = intersectionPoints.slice(-1)[0].polygonId
   const polygons = [edge.poly.index, edge.shared.poly.index]
   if (polygons[1] === last) polygons.reverse()
 
@@ -96,15 +96,15 @@ const connectAdjacentPolygons = (intersectionPoints, {edge, point}) => {
   return intersectionPoints
 }
 
-const generateSegments = (segments, {polygonId, point}, i, points) => {
-  const {point: next} = points[i+1] || {}
-
-  if (next) {
-    segments.push({
-      polygonId,
-      edge: [ point, next ]
+const generateSegments = (segments, {polygonId, point}) => {
+  let last = segments[segments.length - 1]
+  if (!last || last.edge.length === 2) {
+    segments.push(last = {
+      polygonId, edge: []
     })
   }
+
+  last.edge.push(point)
 
   return segments
 }
