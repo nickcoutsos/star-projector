@@ -27,4 +27,4 @@ const bezierStar = (numPoints, radius, innerRadius) => {
 
 export default bezierStar
 export const fourPointStar = bezierStar(4, .04)
-export const fivePointStar = bezierStar(5, .01)
+export const fivePointStar = bezierStar(5, .008)
