@@ -10,7 +10,7 @@ export default function projectCurves(topology, direction, curves) {
   curves.forEach(curve => {
     const last = projectedCurves[projectedCurves.length -1]
     projectedCurves.push(...projectCurve(
-      topology, direction, curve, last && (last.next || last.polygon), projectedCurves.length
+      topology, direction, curve, last && (last.next || last.polygon)
     ))
   })
 
