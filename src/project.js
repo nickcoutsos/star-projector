@@ -162,7 +162,8 @@ const build = (topology, projectedStars, projectedAsterisms) => {
       node.userData.className = {
         asterism: 'dash-line asterism',
         fold: 'dash-line fold',
-        cuts: 'cut'
+        cuts: 'cut',
+        star: 'star shape'
       }[node.userData.type] || new three.LineBasicMaterial();
     }
     else if (node instanceof three.Points) {
@@ -188,7 +189,7 @@ const starPointsObject = points => o(
 
 const starLinesObject = paths => o(
   three.LineSegments, {
-    material: new three.LineBasicMaterial({color: 0xffffff}),
+    userData: {type: 'star'},
     geometry: o(
       three.Geometry, {
         vertices: [].concat(

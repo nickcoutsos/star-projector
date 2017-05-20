@@ -25,6 +25,10 @@
   color: hsl(0, 0%, 100%);
   size: 0.00625;
 }
+.star.shape {
+  type: LineBasicMaterial;
+  color: white;
+}
 
 .poly-face {
   type: MeshBasicMaterial;
