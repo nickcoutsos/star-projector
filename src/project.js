@@ -58,11 +58,29 @@ export default function project(polyhedron, stars, asterisms) {
         .map(id => projectedStars.find(s => s.star.id === id).point)
         .reduce(PAIR, [[]])
 
-      return Promise.all(pairs.map(pair => topology.projectLineSegment(...pair)))
-        .then(segments => [].concat(...segments))
-        .then(segments => segments.map(segment => Object.assign(
-          {asterism}, segment
-        )))
+      return Promise.all(pairs.map(
+        pair => topology.projectLineSegment(...pair)
+          .then(segments => {
+            segments.forEach(segment => {
+              segment.edge = segment.edge.map(p => p.clone())
+              // TODO: ensure segment points aren't offset beyond the line's original length
+              // TODO: ensure segment points aren't offset beyond one another
+              const [a, b] = segment.edge
+              const [a_, b_] = [a, b].map(p => p.clone())
+              const length = a.distanceTo(b)
+              const STAR_OFFSET = .02 / length
+              const EDGE_OFFSET = .008 / length
+
+              a.lerp(b_, pair.some(star => a_.equals(star)) ? STAR_OFFSET : EDGE_OFFSET)
+              b.lerp(a_, pair.some(star => b_.equals(star)) ? STAR_OFFSET : EDGE_OFFSET)
+            })
+            return segments
+          })
+      ))
+          .then(segments => [].concat(...segments))
+          .then(segments => segments.map(segment => Object.assign(
+            {asterism}, segment
+          )))
     }))
     .then(segments => [].concat(...segments))
     .then(projectedAsterisms => build(

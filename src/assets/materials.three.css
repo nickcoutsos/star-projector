@@ -5,6 +5,7 @@
 }
 
 .asterism {
+  type: LineBasicMaterial;
   color: #cccccc;
 }
 
