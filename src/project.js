@@ -1,7 +1,7 @@
 import * as three from 'three';
 import Topology from './topology'
 import {constructHierarchicalMesh} from './geometry/hierarchical-mesh';
-import {fivePointStar} from './shapes/star'
+import {fourPointStar} from './shapes/star'
 import './extensions/curve-path'
 
 function o(constructor, props, children=[]) {
@@ -45,7 +45,7 @@ export default function project(polyhedron, stars, asterisms) {
     const direction = vectorFromAngles(rightAscension, declination)
     return topology.projectVector(direction).then(({polygonId, point}) => {
       if (star.magnitude < 2 || asterismStars.indexOf(star.id) > -1) {
-        return topology.projectCurvePath(fivePointStar, direction)
+        return topology.projectCurvePath(fourPointStar, direction)
           .then(paths => ({ paths, point, star }))
       }
 

@@ -7,17 +7,16 @@ const bezierStar = (numPoints, radius, innerRadius) => {
     innerRadius = radius * 0.5
   }
 
-  const b = -Math.PI / 2
+  const b = Math.PI / 2
   const a = 2 * Math.PI / numPoints
-  const a2 = a / 2
   const aN = a / numPoints
 
   return '-'.repeat(numPoints - 1).split('-')
     .map((_,i) => new CubicBezierCurve3(
-      polar(radius, b + i * a + a2),
-      polar(innerRadius, b + i * a + a2 + aN),
-      polar(innerRadius, b + i * a + a2 + aN + aN),
-      polar(radius, b + (i + 1) * a + a2)
+      polar(radius, b + i * a),
+      polar(innerRadius, b + i * a + aN),
+      polar(innerRadius, b + i * a + aN + aN),
+      polar(radius, b + (i + 1) * a)
     ))
     .reduce(
       (path, curve) => (path.add(curve), path),
@@ -26,5 +25,5 @@ const bezierStar = (numPoints, radius, innerRadius) => {
 }
 
 export default bezierStar
-export const fourPointStar = bezierStar(4, .04)
+export const fourPointStar = bezierStar(4, .008)
 export const fivePointStar = bezierStar(5, .008)
