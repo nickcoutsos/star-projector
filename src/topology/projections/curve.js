@@ -58,10 +58,11 @@ function projectCurve(topology, direction, curve, preferPolygon=null) {
   // curve will think it's intersecting "too close" to the beginning for the
   // intersection to be genuine. Instead we also indicate that the next curve
   // should project onto the polygon sharing the intersected edge.
+  const next = intersection.edge.shared.poly
   if (1 - intersection.t < EPSILON) {
     return [{
       curve: initial,
-      next: intersection.edge.shared.poly,
+      next,
       polygon
     }]
   }
@@ -69,7 +70,7 @@ function projectCurve(topology, direction, curve, preferPolygon=null) {
   return [
     {curve: initial, polygon},
     ...projectCurve(
-      topology, direction, remainder, intersection.edge.shared.poly
+      topology, direction, remainder, next
     )
   ]
 }
@@ -91,7 +92,7 @@ function findFirstCurvePolygonIntersection(curve, polygon) {
   const angle = back.angleTo(polygon.plane.normal)
   const axis = new Vector3().crossVectors(polygon.plane.normal, back).normalize()
   const matrix = new Matrix4().makeRotationAxis(axis, angle)
-
+  const length = curve.getLength()
 
   edges = polygon.edges.map(edge => Object.assign({}, edge, {line: edge.line.clone().applyMatrix4(matrix)}))
   curve = curve.clone().applyMatrix4(matrix)
@@ -99,7 +100,7 @@ function findFirstCurvePolygonIntersection(curve, polygon) {
   edges.forEach(({line}) => { line.start.z = line.end.z = 0 })
 
   for (let edge of edges) {
-    const intersections = curve.intersectLine(edge.line).filter(({t}) => t > EPSILON)
+    const intersections = curve.intersectLine(edge.line).filter(({t}) => t > EPSILON && t*length > EPSILON)
     if (!intersections.length) {
       if (curveEndsCloseEnoughToLine(curve, edge.line)) {
         return {edge, t: 1}
