@@ -1,5 +1,5 @@
 import {Plane} from 'three'
-import {pointInPolygon, isSimilarNormal} from '../polygons'
+import {pointInPolygon, isSimilarNormal} from '../topology/polygons'
 
 export default function projectLineSegment(topology, a, b) {
   const polygonA = topology.polygons.find(p => pointInPolygon(a, p))

@@ -1,5 +1,6 @@
 import * as three from 'three';
 import Topology from './topology'
+import projections from './projections/async'
 import {constructHierarchicalMesh} from './geometry/hierarchical-mesh';
 import {fourPointStar} from './shapes/star'
 import './extensions/curve-path'
@@ -43,9 +44,9 @@ export default function project(polyhedron, stars, asterisms) {
   return Promise.all(stars.map(star => {
     let {rightAscension, declination} = star;
     const direction = vectorFromAngles(rightAscension, declination)
-    return topology.projectVector(direction).then(({polygonId, point}) => {
+    return projections.vector(topology, direction).then(({polygonId, point}) => {
       if (star.magnitude < 2 || asterismStars.indexOf(star.id) > -1) {
-        return topology.projectCurvePath(fourPointStar, direction)
+        return projections.path(topology, fourPointStar, direction)
           .then(paths => ({ paths, point, star }))
       }
 
@@ -59,7 +60,7 @@ export default function project(polyhedron, stars, asterisms) {
         .reduce(PAIR, [[]])
 
       return Promise.all(pairs.map(
-        pair => topology.projectLineSegment(...pair)
+        pair => projections.line(topology, ...pair)
           .then(segments => {
             segments.forEach(segment => {
               segment.edge = segment.edge.map(p => p.clone())

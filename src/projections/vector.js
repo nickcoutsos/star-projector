@@ -1,5 +1,5 @@
 import {Ray, Vector3} from 'three'
-import {pointInPolygon} from '../polygons'
+import {pointInPolygon} from '../topology/polygons'
 
 export default function projectVector(topology, vector, origin = new Vector3()) {
   const ray = new Ray(origin, vector);

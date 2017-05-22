@@ -1,6 +1,5 @@
 import organizePolygons, { pointInPolygon } from './polygons'
 import edgesFromPolygons from './edges'
-import * as projections from './projections'
 
 export default class Topology {
   constructor(geometry) {
@@ -26,42 +25,6 @@ export default class Topology {
 
   findContainingPolygon(point) {
     return this.polygons.find(polygon => pointInPolygon(point, polygon))
-  }
-
-  projectVector(vector) {
-    return Promise.resolve(
-      projections.vector(this, vector)
-    )
-  }
-
-  /**
-   * Project a line connecting two projected points onto the topology.
-   *
-   * This function serves to handle situations involving points that lie on
-   * separate polygons and must be connected with multiple line segments.
-   *
-   * @param {Vector3} a
-   * @param {Vector3} b
-   * @returns {Array<Object>} segments - an array of one or more line segments
-   *  described as {polygon, edge} where `edge` is an array of two points and
-   *  `polygon` is the index of the polygon in `topology` on which they lie.
-   */
-  projectLineSegment(a, b) {
-    return Promise.resolve(
-      projections.line(this, a, b)
-    )
-  }
-
-  /**
-   * Project a path made up of cubic bezier curves against the topology
-   *
-   * @param {CurvePath} path
-   * @param {Vector3} direction
-   */
-  projectCurvePath(path, direction) {
-    return Promise.resolve(
-      projections.path(this, path, direction)
-    )
   }
 
   travel(source, next) {

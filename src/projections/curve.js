@@ -1,6 +1,6 @@
 import {CubicBezierCurve3, Matrix4, Ray, Vector3} from 'three'
 import projectVector from './vector'
-import '../../extensions'
+import '../extensions'
 
 const EPSILON = 1e-6
 
