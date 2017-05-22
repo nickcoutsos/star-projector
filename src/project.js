@@ -160,7 +160,7 @@ const build = (topology, projectedStars, projectedAsterisms) => {
     if (node instanceof three.LineSegments) {
       node.geometry.computeLineDistances();
       node.userData.className = {
-        asterism: 'dash-line asterism',
+        asterism: 'asterism',
         fold: 'dash-line fold',
         cuts: 'cut',
         star: 'star shape'
