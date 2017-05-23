@@ -1,8 +1,7 @@
 import * as three from 'three';
 import Topology from './topology'
-import projections from './projections/async'
+import {getProjectedStars} from './catalogs'
 import {constructHierarchicalMesh} from './geometry/hierarchical-mesh';
-import {fourPointStar} from './shapes/star'
 import './extensions/curve-path'
 
 function o(constructor, props, children=[]) {
@@ -16,80 +15,19 @@ function o(constructor, props, children=[]) {
   return node;
 }
 
-function vectorFromAngles(theta, phi) {
-	return new three.Vector3(
-		Math.cos(phi) * Math.sin(theta),
-		Math.sin(phi),
-		Math.cos(phi) * Math.cos(theta)
-	).normalize();
-}
-
-let PAIR = (pairs, val) => {
-	let pair = pairs[pairs.length-1];
-	if (pair.length > 1) pairs.push(pair = []);
-	pair.push(val);
-	return pairs;
-};
-
-export default function project(polyhedron, stars, asterisms) {
-  let topology = new Topology(polyhedron)
-
-  const asterismStars = asterisms.reduce((stars, asterism) => {
-    asterism.stars.forEach(id => {
-      stars.indexOf(id) === -1 && stars.push(id)
-    })
-    return stars
-  }, [])
-
-  return Promise.all(stars.map(star => {
-    let {rightAscension, declination} = star;
-    const direction = vectorFromAngles(rightAscension, declination)
-    return projections.vector(topology, direction).then(({polygonId, point}) => {
-      if (star.magnitude < 2 || asterismStars.indexOf(star.id) > -1) {
-        return projections.path(topology, fourPointStar, direction)
-          .then(paths => ({ paths, point, star }))
-      }
-
-      return { star, point, polygonId }
-    })
-  })).then(projectedStars => {
-    /// project asterism lines onto topology
-    return Promise.all(asterisms.map(asterism => {
-      const pairs = asterism.stars
-        .map(id => projectedStars.find(s => s.star.id === id).point)
-        .reduce(PAIR, [[]])
-
-      return Promise.all(pairs.map(
-        pair => projections.line(topology, ...pair)
-          .then(segments => {
-            segments.forEach(segment => {
-              segment.edge = segment.edge.map(p => p.clone())
-              // TODO: ensure segment points aren't offset beyond the line's original length
-              // TODO: ensure segment points aren't offset beyond one another
-              const [a, b] = segment.edge
-              const [a_, b_] = [a, b].map(p => p.clone())
-              const length = a.distanceTo(b)
-              const STAR_OFFSET = .02 / length
-              const EDGE_OFFSET = .008 / length
-
-              a.lerp(b_, pair.some(star => a_.equals(star)) ? STAR_OFFSET : EDGE_OFFSET)
-              b.lerp(a_, pair.some(star => b_.equals(star)) ? STAR_OFFSET : EDGE_OFFSET)
-            })
-            return segments
-          })
-      ))
-          .then(segments => [].concat(...segments))
-          .then(segments => segments.map(segment => Object.assign(
-            {asterism}, segment
-          )))
-    }))
-    .then(segments => [].concat(...segments))
-    .then(projectedAsterisms => build(
+export default function project(polyhedron, starQuery, asterismQuery) {
+  const topology = new Topology(polyhedron)
+  return getProjectedStars(
+    topology,
+    starQuery,
+    asterismQuery
+  ).then(({stars, asterisms}) => (
+    build(
       topology,
-      projectedStars,
-      projectedAsterisms
-    ))
-  })
+      stars,
+      asterisms
+    )
+  ))
 }
 
 const build = (topology, projectedStars, projectedAsterisms) => {

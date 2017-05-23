@@ -34,6 +34,13 @@ new Vue({
     filters: {
       magnitude: 4.75,
       selectedAsterisms: []
+    },
+    connectedStars: [],
+    starQuery: {
+      magnitude: {$lte: 4.75}
+    },
+    asterismQuery: {
+      starCounts: {$elemMatch: {count: {$gt: 3}}}
     }
   },
 
@@ -73,13 +80,40 @@ new Vue({
     }
   },
 
+  computed: {
+    starQuery() {
+      const {filters, connectedStars} = this
+      return {
+        $or: [
+          {magnitude: {$lte: Number(filters.magnitude)}},
+          {id: {$in: connectedStars}}
+        ]
+      }
+    },
+    asterismQuery() {
+      const {selectedAsterisms} = this
+      const asterismNames = selectedAsterisms.map(asterism => asterism.name)
+      return {
+        name: {$in: asterismNames}
+      }
+    },
+    connectedStars() {
+      const asterisms = this.selectedAsterisms
+      return [
+        ...new Set([].concat(
+          ...asterisms.map(a => a.stars))
+        )
+      ]
+    }
+  },
+
   asyncComputed: {
     object() {
       return project(
         AVAILABLE_GEOMETRIES[this.selectedGeometry],
-        this.availableStars,
-        this.availableStars.length > 0 ? this.selectedAsterisms : []
-      );
+        this.starQuery,
+        this.asterismQuery
+      )
     }
   }
 });
