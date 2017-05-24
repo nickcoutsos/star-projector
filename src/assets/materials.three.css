@@ -1,9 +1,3 @@
-.dash-line {
-  type: LineDashedMaterial;
-  dashSize: 0.08;
-  gapSize: 0.01;
-}
-
 .asterism {
   type: LineBasicMaterial;
   color: #cccccc;
@@ -16,6 +10,9 @@
 }
 
 .fold {
+  type: LineDashedMaterial;
+  dashSize: 0.08;
+  gapSize: 0.01;
   color: hsl(230, 30%, 30%);
   linewidth: 2;
 }

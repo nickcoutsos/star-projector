@@ -95,30 +95,13 @@ const build = (topology, projectedStars, projectedAsterisms) => {
     );
   });
 
-  hierarchicalMesh.traverse(node => {
-    if (node instanceof three.LineSegments) {
-      node.geometry.computeLineDistances();
-      node.userData.className = {
-        asterism: 'asterism',
-        fold: 'dash-line fold',
-        cuts: 'cut',
-        star: 'star shape'
-      }[node.userData.type] || new three.LineBasicMaterial();
-    }
-    else if (node instanceof three.Points) {
-      node.userData.className = 'stars';
-    }
-    else if (node instanceof three.Mesh) {
-      node.userData.className = 'poly-face';
-    }
-  });
-
   return hierarchicalMesh
 }
 
 const starPointsObject = points => o(
   three.Points, {
     name: 'stars',
+    userData: {className: 'stars'},
     geometry: o(
       three.Geometry,
       { vertices: points.map(s => s.point) }
@@ -128,7 +111,7 @@ const starPointsObject = points => o(
 
 const starLinesObject = paths => o(
   three.LineSegments, {
-    userData: {type: 'star'},
+    userData: {type: 'star', className: 'star shape'},
     geometry: o(
       three.Geometry, {
         vertices: [].concat(
@@ -141,6 +124,7 @@ const starLinesObject = paths => o(
 
 const polyFaceObject = polygon => o(
   three.Mesh, {
+    userData: {className: 'poly-face'},
     geometry: o(three.Geometry, {
       vertices: polygon.points.slice(),
       faces: polygon.triangles.map(({a, b, c}) => (
@@ -159,7 +143,10 @@ const asterismLinesObject = asterisms => o(
   Object.keys(asterisms).map(name =>
     o(three.LineSegments, {
       name: `asterism-${name}`,
-      userData: {asterism: {name}, type: 'asterism'},
+      userData: {
+        asterism: {name},
+        className: 'asterism'
+      },
       geometry: o(three.Geometry, {
         vertices: [].concat(...asterisms[name])
       })
@@ -169,14 +156,14 @@ const asterismLinesObject = asterisms => o(
 
 const polyFoldLinesObject = fold => o(
   three.LineSegments, {
-    userData: {type: 'fold'},
+    userData: {className: 'fold'},
     geometry: o(three.Geometry, {vertices: fold})
   }
 )
 
 const polyCutLinesObject = cuts => o(
   three.LineSegments, {
-    userData: {type: 'cuts'},
+    userData: {className: 'cut'},
     geometry: o(three.Geometry, {
       vertices: [].concat(...cuts)
     })
