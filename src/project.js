@@ -72,9 +72,9 @@ const build = (topology, projectedStars, projectedAsterisms) => {
       {fold, cuts} = projectedEdges.find(e => e.polygonId === polygonId),
       asterisms = projectedAsterisms
         .filter(a => a.polygonId === polygonId)
-        .reduce((map, {asterism, edge}) => {
+        .reduce((map, {asterism, quad}) => {
           if (!map[asterism.name]) map[asterism.name] = [];
-          map[asterism.name].push(edge);
+          map[asterism.name].push(quad);
           return map;
         }, {});
 

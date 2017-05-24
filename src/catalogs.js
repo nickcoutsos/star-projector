@@ -76,10 +76,28 @@ const projectAsterismLine = (topology, pair) => (
       const length = a.distanceTo(b)
       const STAR_OFFSET = .02 / length
       const EDGE_OFFSET = .008 / length
+      const QUAD_THICKNESS = 0.004
+
+      const polygon = topology.polygons[segment.polygonId]
+      const cross = polygon.plane.normal
+        .clone()
+        .cross(b.clone().sub(a))
+        .normalize()
+        .multiplyScalar(QUAD_THICKNESS / 2)
 
       a.lerp(b_, pair.some(star => a_.equals(star)) ? STAR_OFFSET : EDGE_OFFSET)
       b.lerp(a_, pair.some(star => b_.equals(star)) ? STAR_OFFSET : EDGE_OFFSET)
+
+      segment.quad = ([
+        a.clone().add(cross),
+        a.clone().sub(cross),
+        b.clone().sub(cross),
+        b.clone().add(cross)
+      ]).reduce(makeSequence, [])
+        .reduce(makePairs, [])
+        .reduce((a, b) => a.concat(b))
     })
+
     return segments
   })
 )
@@ -92,4 +110,10 @@ const makePairs = (pairs, value) => {
 
   pair.push(value)
   return pairs
+}
+
+const makeSequence = (collected, value, i, values) => {
+  collected.push(value)
+  collected.push(values[(i + 1) % values.length])
+  return collected
 }
