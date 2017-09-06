@@ -43,9 +43,9 @@ export function line(topology, a, b) {
  * @param {Vector3} direction
  * @resolves {Array<three.CurvePath>} array of projected paths (with added `polygonId` property)
  */
-export function path(topology, path, direction) {
+export function path(topology, path, direction, options) {
   return Promise.resolve(
-    projectPath(topology, path, direction)
+    projectPath(topology, path, direction, options)
   )
 }
 
