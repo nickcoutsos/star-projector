@@ -1,6 +1,7 @@
 import { Vector3 } from 'three'
 import projections from './projections/async'
 import { fourPointStar } from './shapes/star'
+import circle from './shapes/circle'
 import { loadStarCatalog, loadAsterismCatalog } from './database'
 export { loadStarCatalog, loadAsterismCatalog }
 
@@ -39,13 +40,15 @@ const projectStars = (topology, stars) => Promise.all(
   stars.map(star => {
     const {rightAscension, declination} = star;
     const direction = vectorFromAngles(rightAscension, declination)
-    return projections.vector(topology, direction).then(({polygonId, point}) => {
-      if (star.magnitude < 2 || star.connected) {
-        return projections.path(topology, fourPointStar, direction)
-          .then(paths => ({ paths, point, star }))
-      }
+    return projections.vector(topology, direction).then(({ point }) => {
+      const shape = star.magnitude < 2 || star.connected
+        ? fourPointStar
+        : circle
 
-      return { star, point, polygonId }
+      const radius = star.magnitude
+      const angle = star.id % (2*Math.PI)
+      return projections.path(topology, shape, direction, { radius, angle })
+        .then(paths => ({ paths, point, star }))
     })
   })
 )
