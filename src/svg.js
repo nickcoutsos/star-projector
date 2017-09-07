@@ -69,23 +69,34 @@ export function drawSVG(matrices, stars, asterisms, edges) {
     align = p => p.clone().applyMatrix4(aaRotation),
     alignEdge = edge => edge.map(align);
 
-  cuts = cuts.map(alignEdge);
-  folds = folds.map(alignEdge);
-  stars = stars.map(star => Object.assign(star, align(new Vector3(star.x, star.y))));
-  stars = starPoints.map(star => Object.assign(star, align(new Vector3(star.x, star.y))))
+  const boundingBox = new Box2().setFromPoints([].concat(...cuts.map(alignEdge)))
 
-  starPaths.map(curve => curve.applyMatrix4(aaRotation))
+  const offset = boundingBox.min.clone().negate()
+  const scale = 100 / boundingBox.getSize().x
+  const height = boundingBox.getSize().y * scale
+
+  const viewbox = [0, 0, 100, height]
+  const viewboxTransform = new Matrix4()
+    .multiply(new Matrix4().makeScale(scale, scale, 1))
+    .multiply(new Matrix4().makeTranslation(offset.x, offset.y, 0))
+    .multiply(aaRotation)
+
+  const transform = p => p.clone().applyMatrix4(viewboxTransform)
+  const transformEdge = edge => edge.map(transform)
+
+  cuts = cuts.map(transformEdge)
+  folds = folds.map(transformEdge);
+  starPaths.map(curve => curve.applyMatrix4(viewboxTransform))
 
   asterisms = asterisms.map(
     ({asterism, polygonId, edge}) =>
     ({asterism, edge: edge.map(p => p.clone().applyMatrix4(matrices[polygonId]))})
   ).reduce((asterisms, {asterism, edge}) => {
     if (!asterisms[asterism.name]) asterisms[asterism.name] = [];
-    asterisms[asterism.name].push(alignEdge(edge));
+    asterisms[asterism.name].push(transformEdge(edge));
     return asterisms;
   }, {});
 
-  let boundingBox = new Box2().setFromPoints([].concat(...cuts));
 
   function segment([a, b]) {
     return element(
@@ -97,30 +108,33 @@ export function drawSVG(matrices, stars, asterisms, edges) {
     );
   }
 
+  const cutStrokeAttrs = {
+    stroke: 'red',
+    'stroke-width': '0.01pt',
+    fill: 'transparent'
+  }
 
   document.body.appendChild(
 		element('svg', {
 			id: 'output',
 			preserveAspectRatio: 'none',
-			viewBox: [
-				boundingBox.min.x, boundingBox.min.y,
-				boundingBox.getSize().x, boundingBox.getSize().y
-			].join(' ')
+			viewBox: viewbox.join(' ')
 		}, [
-			element('g', {stroke: 'red', 'stroke-width': '0.01pt'}, cuts.map(segment)),
+      element('g', cutStrokeAttrs, [element('rect', { x: 0, y: 0, width: 2.54, height: 2.54 })]),
+			element('g', cutStrokeAttrs, cuts.map(segment)),
 			element('g', {stroke: 'blue', 'stroke-width': 0.015}, folds.map(segment)),
-			element('g', {stroke: 'red', 'stroke-width': 0.0025, fill: 'transparent'},
-				stars.map(({radius, x, y}) => element('circle', {cx: x, cy: y, r: radius}))
-			),
-      element('g', {stroke: 'red', 'stroke-width': 0.0015, fill: 'transparent'},
+			// element('g', cutStrokeAttrs,
+			// 	stars.map(({radius, x, y}) => element('circle', {cx: x, cy: y, r: radius}))
+			// ),
+      element('g', cutStrokeAttrs,
         starPaths.map(curve =>
           element('path', {
             d: curveDirective(curve)
           }))
       ),
-			element('g', {id: 'asterisms-groups'},
+			element('g', Object.assign({id: 'asterisms-groups'}, cutStrokeAttrs),
         Object.keys(asterisms).map(name =>
-          element('g', {id: `${name}-lines`, stroke: '#660000', 'stroke-width': 0.001},
+          element('g', {id: `${name}-lines`},
           [].concat(...asterisms[name])
             .reduce(PAIR, [[]])
             .map(segment)
