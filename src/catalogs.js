@@ -36,6 +36,10 @@ export const getProjectedStars = (topology, starQuery, asterismQuery) => (
   })
 )
 
+const scaleFromArc = (arc, distance) => {
+  return distance * Math.tan(Math.PI * arc / 180)
+}
+
 const projectStars = (topology, stars) => Promise.all(
   stars.map(star => {
     const {rightAscension, declination} = star;
@@ -45,9 +49,10 @@ const projectStars = (topology, stars) => Promise.all(
         ? fourPointStar
         : circle
 
-      const radius = star.magnitude
+      const arc = (13 - star.magnitude) / 15 * .2864 + .4774
+      const scale = scaleFromArc(arc, point.length())
       const angle = star.id % (2*Math.PI)
-      return projections.path(topology, shape, direction, { radius, angle })
+      return projections.path(topology, shape, direction, { scale, angle })
         .then(paths => ({ paths, point, star }))
     })
   })

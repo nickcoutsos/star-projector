@@ -4,7 +4,7 @@ import projectCurves from './curve'
 export default function projectCurvePath(topology, path, direction, options) {
   const ra = Math.atan2(direction.z, direction.x)
   const dec = Math.asin(direction.y)
-  const scale = options && options.radius || 1
+  const scale = options && options.scale || 1
   const rotate = options && options.angle || 0
   const scaleTransform = new Matrix4().makeScale(scale, scale, 1)
   const rotateTransform = new Matrix4().makeRotationZ(rotate * 2 * Math.PI)
