@@ -1,14 +1,6 @@
 import {Box2, Matrix4, Vector3} from 'three';
 import hull from 'convexhull-js';
 
-const PAIR = (pairs, val) => {
-	let pair = pairs[pairs.length-1];
-	if (pair.length > 1) pairs.push(pair = []);
-	pair.push(val);
-	return pairs;
-};
-
-
 /**
  * Create a DOM element in the SVG namespace.
  *
@@ -30,8 +22,13 @@ const curveDirective = curve => {
   return `M${start.x},${start.y} C ${points.map(({x, y}) => `${x} ${y}`).join(' ')}`
 }
 
+const asterismEdgeDirective = edges => {
+  const [ first, ...rest ] = edges.filter((_, i) => i === 0 || i % 2 !== 0)
+  return `M${first.x},${first.y} L ${rest.map(({x, y}) => `${x} ${y}`).join(' ')}`
+}
+
 export function drawSVG(matrices, stars, asterisms, edges) {
-  const { starPoints, starPaths } = stars.reduce((results, { polygonId, paths, star, point }) => {
+  const { starPaths } = stars.reduce((results, { polygonId, paths, star, point }) => {
     if (polygonId !== undefined) {
       results.starPoints.push(Object.assign(
         {radius: Math.max(0.1, (1 - star.magnitude / 7)) * 0.025 + .001},
@@ -63,9 +60,8 @@ export function drawSVG(matrices, stars, asterisms, edges) {
         (v, i, points) => ([v, points[(i+1) % points.length]])
       );
 
-
   let longestEdge = edgeHull.map(([a, b]) => a.clone().sub(b)).reduce((a, b) => b.lengthSq() > a.lengthSq() ? b : a),
-		aaRotation = new Matrix4().makeRotationAxis(new Vector3(0, 0, 1), longestEdge.angleTo(new Vector3(1, 0, 0))),
+    aaRotation = new Matrix4().makeRotationAxis(new Vector3(0, 0, 1), longestEdge.angleTo(new Vector3(1, 0, 0))),
     align = p => p.clone().applyMatrix4(aaRotation),
     alignEdge = edge => edge.map(align);
 
@@ -89,14 +85,13 @@ export function drawSVG(matrices, stars, asterisms, edges) {
   starPaths.map(curve => curve.applyMatrix4(viewboxTransform))
 
   asterisms = asterisms.map(
-    ({asterism, polygonId, edge}) =>
-    ({asterism, edge: edge.map(p => p.clone().applyMatrix4(matrices[polygonId]))})
-  ).reduce((asterisms, {asterism, edge}) => {
+    ({asterism, polygonId, quad}) =>
+    ({ asterism, quad: quad.map(p => p.clone().applyMatrix4(matrices[polygonId]))})
+  ).reduce((asterisms, {asterism, quad}) => {
     if (!asterisms[asterism.name]) asterisms[asterism.name] = [];
-    asterisms[asterism.name].push(transformEdge(edge));
+    asterisms[asterism.name].push(quad.map(transform))
     return asterisms;
   }, {});
-
 
   function segment([a, b]) {
     return element(
@@ -123,9 +118,6 @@ export function drawSVG(matrices, stars, asterisms, edges) {
       element('g', cutStrokeAttrs, [element('rect', { x: 0, y: 0, width: 2.54, height: 2.54 })]),
 			element('g', cutStrokeAttrs, cuts.map(segment)),
 			element('g', {stroke: 'blue', 'stroke-width': 0.015}, folds.map(segment)),
-			// element('g', cutStrokeAttrs,
-			// 	stars.map(({radius, x, y}) => element('circle', {cx: x, cy: y, r: radius}))
-			// ),
       element('g', cutStrokeAttrs,
         starPaths.map(curve =>
           element('path', {
@@ -134,11 +126,11 @@ export function drawSVG(matrices, stars, asterisms, edges) {
       ),
 			element('g', Object.assign({id: 'asterisms-groups'}, cutStrokeAttrs),
         Object.keys(asterisms).map(name =>
-          element('g', {id: `${name}-lines`},
-          [].concat(...asterisms[name])
-            .reduce(PAIR, [[]])
-            .map(segment)
-          )
+          element('g', {id: `${name}-lines`}, (
+            asterisms[name].map(quad => (
+              element('path', {d: asterismEdgeDirective(quad) })
+            ))
+          ))
         )
 			)
 		])
