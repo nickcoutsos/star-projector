@@ -19,4 +19,4 @@ export const makeCircle = radius => (
   }, new CurvePath())
 )
 
-export default makeCircle(0.002)
+export default makeCircle(.6)
