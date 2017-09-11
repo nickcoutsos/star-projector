@@ -84,7 +84,8 @@ const projectAsterismLine = (topology, pair) => (
       const length = a.distanceTo(b)
       const STAR_OFFSET = .02 / length
       const EDGE_OFFSET = .008 / length
-      const QUAD_THICKNESS = 0.004
+      const QUAD_ARC = .32
+      const QUAD_THICKNESS = scaleFromArc(QUAD_ARC, a.length())
 
       const polygon = topology.polygons[segment.polygonId]
       const cross = polygon.plane.normal
