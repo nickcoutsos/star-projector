@@ -15,6 +15,17 @@ const coords = (points, value) => {
   return points
 }
 
+CurvePath.prototype.clone = function() {
+  const cloned = new CurvePath()
+  this.curves.forEach(curve => cloned.add(curve.clone()))
+  return cloned
+}
+
+CurvePath.prototype.applyMatrix4 = function(matrix) {
+  this.curves.forEach(curve => curve.applyMatrix4(matrix))
+  return this
+}
+
 CurvePath.prototype.getLineSegments = function(divisions) {
   return this
     .createPointsGeometry(divisions).vertices

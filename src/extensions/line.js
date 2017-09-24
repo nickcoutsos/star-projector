@@ -1,6 +1,13 @@
 import {Line3, Vector3} from 'three'
 import './vector'
 
+Line3.prototype.toPoints = function() {
+  return [
+    this.start,
+    this.end
+  ]
+}
+
 Line3.prototype.toArray = function() {
   return [
     this.start.toArray(),
