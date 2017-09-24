@@ -95,6 +95,38 @@ const build = (topology, projectedStars, projectedAsterisms) => {
     );
   });
 
+  // Pick the "top" polygon and rotate so that it faces -Z
+  let back = new three.Vector3(0, 0, 1)
+  let top = hierarchicalMesh.children[0].userData.node.poly,
+    angle = top.plane.normal.angleTo(back),
+    cross = new three.Vector3().crossVectors(top.plane.normal, back).normalize(),
+    rotation = new three.Matrix4().makeRotationAxis(cross, angle)
+
+  // Update the object's matrix with this new transform
+  hierarchicalMesh.updateMatrixWorld()
+
+  // Collect each polygon's matrix and fold/cut edges
+  const polygons = topology.polygons.map(polygon => {
+    const object = objectByPolygon[polygon.index]
+    object.updateMatrixWorld()
+    const matrix = rotation.clone().multiply(object.matrixWorld.clone())
+    const { node, parent, children } = object.userData
+
+    const fold = parent && node.edge
+    const cuts = node.poly.edges
+      .filter(e => (
+        (!parent || e.shared.poly !== parent.poly)
+        && children.every(c => c.node.edge.id !== e.id)
+      ))
+
+    return {
+      polygon,
+      matrix,
+      fold,
+      cuts
+    }
+  })
+
   return hierarchicalMesh
 }
 
