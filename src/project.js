@@ -3,6 +3,7 @@ import Topology from './topology'
 import {getProjectedStars} from './catalogs'
 import {constructHierarchicalMesh} from './geometry/hierarchical-mesh';
 import './extensions/curve-path'
+import { drawSVG } from './svg'
 
 function o(constructor, props, children=[]) {
   let node = Object.assign(new constructor, props);
@@ -126,6 +127,9 @@ const build = (topology, projectedStars, projectedAsterisms) => {
       cuts
     }
   })
+
+  // Render flattened SVG
+  drawSVG(polygons, projectedStars, projectedAsterisms)
 
   return hierarchicalMesh
 }

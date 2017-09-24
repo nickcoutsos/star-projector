@@ -17,9 +17,16 @@ export function element(tagname, attributes={}, children=[]) {
   return node;
 }
 
-const curveDirective = curve => {
-  const [start, ...points] = curve.getControlPoints()
-  return `M${start.x},${start.y} C ${points.map(({x, y}) => `${x} ${y}`).join(' ')}`
+const lineDirective = ([ a, b ]) => {
+  return `M ${a.x},${a.y} L ${b.x},${b.y}`
+}
+
+const pathDirective = path => {
+  const curveTo = ([, ...points]) => points.map(({ x, y }) => `${x},${y}`).join(' ')
+  const curvePoints = path.curves.map(curve => curve.getControlPoints())
+  const [ [first] ] = curvePoints
+
+  return `M${first.x},${first.y} C ${curvePoints.map(curveTo).join(' ')}`
 }
 
 const asterismEdgeDirective = edges => {
@@ -27,112 +34,109 @@ const asterismEdgeDirective = edges => {
   return `M${first.x},${first.y} L ${rest.map(({x, y}) => `${x} ${y}`).join(' ')}`
 }
 
-export function drawSVG(matrices, stars, asterisms, edges) {
-  const { starPaths } = stars.reduce((results, { polygonId, paths, star, point }) => {
-    if (polygonId !== undefined) {
-      results.starPoints.push(Object.assign(
-        {radius: Math.max(0.1, (1 - star.magnitude / 7)) * 0.025 + .001},
-        point.clone().applyMatrix4(matrices[polygonId])
-      ))
-    } else if (paths) {
-      paths.forEach(({curves, polygonId}) => {
-        const matrix = matrices[polygonId]
-        const transformed = curves.map(curve => (
-          curve.clone().applyMatrix4(matrix)
-        ))
+const getUnfoldedEdges = polygons => [].concat(
+  ...polygons.map(({ matrix, cuts }) => (
+    cuts.map(cut => cut.line
+      .clone()
+      .applyMatrix4(matrix)
+    )
+  ))
+)
 
-        results.starPaths.push(...transformed)
-      })
-    }
+const getUnfoldedHull = edges => (
+  hull([].concat(
+    ...edges.map(edge => edge.toPoints())
+  ))
+)
 
-    return results
-  }, {
-    starPoints: [],
-    starPaths: []
-  })
+/**
+ * Make a rotation matrix to align the longest edge of a hull with the X-axis
+ *
+ * @param {Array<Vector3>}
+ * @returns {Matrix4}
+ */
+const getOrientationMatrix = points => {
+  const longestEdge = points
+    .map((v, i, arr) => ([v, arr[(i+1) % arr.length]]))
+    .map(edge => new Vector3().subVectors(...edge))
+    .reduce((a, b) => b.lengthSq() > a.lengthSq() ? b : a)
 
-  let cuts = [].concat(...edges.map(({polygonId, cuts}) => cuts.map(cut => cut.map(p => p.clone().applyMatrix4(matrices[polygonId]))))),
-    folds = edges.map(({polygonId, fold}) => fold && fold.map(p => p.clone().applyMatrix4(matrices[polygonId]))).filter(fold => fold);
+  return new Matrix4().makeRotationZ(
+    longestEdge.angleTo(new Vector3(1, 0, 0))
+  )
+}
 
-
-  let edgeHull = hull([].concat(...cuts))
-      .map(
-        (v, i, points) => ([v, points[(i+1) % points.length]])
-      );
-
-  let longestEdge = edgeHull.map(([a, b]) => a.clone().sub(b)).reduce((a, b) => b.lengthSq() > a.lengthSq() ? b : a),
-    aaRotation = new Matrix4().makeRotationAxis(new Vector3(0, 0, 1), longestEdge.angleTo(new Vector3(1, 0, 0))),
-    align = p => p.clone().applyMatrix4(aaRotation),
-    alignEdge = edge => edge.map(align);
-
-  const boundingBox = new Box2().setFromPoints([].concat(...cuts.map(alignEdge)))
+export function drawSVG(polygons, stars, asterisms) {
+  const edges = getUnfoldedEdges(polygons)
+  const edgeHull = getUnfoldedHull(edges)
+  const aaRotation = getOrientationMatrix(edgeHull)
+  const boundingBox = new Box2().setFromPoints(
+    edgeHull.map(p => p.applyMatrix4(aaRotation))
+  )
 
   const offset = boundingBox.min.clone().negate()
-  const scale = 100 / boundingBox.getSize().x
+  // const scale = 100 / boundingBox.getSize().x
+  const scale = 12.584086145276297
+  const width = boundingBox.getSize().x * scale
   const height = boundingBox.getSize().y * scale
 
-  const viewbox = [0, 0, 100, height]
+  const viewbox = [0, 0, width, height]
   const viewboxTransform = new Matrix4()
     .multiply(new Matrix4().makeScale(scale, scale, 1))
     .multiply(new Matrix4().makeTranslation(offset.x, offset.y, 0))
     .multiply(aaRotation)
 
-  const transform = p => p.clone().applyMatrix4(viewboxTransform)
-  const transformEdge = edge => edge.map(transform)
+  const transformations = polygons.map(({ matrix }) => (
+    matrix.clone().premultiply(viewboxTransform)
+  ))
 
-  cuts = cuts.map(transformEdge)
-  folds = folds.map(transformEdge);
-  starPaths.map(curve => curve.applyMatrix4(viewboxTransform))
+  const { cuts, folds } = polygons.reduce((results, { cuts, fold }, polygonId) => {
+    const transform = transformations[polygonId]
+    const mapEdge = edge => edge.line.clone().applyMatrix4(transform).toPoints()
 
-  asterisms = asterisms.map(
-    ({asterism, polygonId, quad}) =>
-    ({ asterism, quad: quad.map(p => p.clone().applyMatrix4(matrices[polygonId]))})
-  ).reduce((asterisms, {asterism, quad}) => {
-    if (!asterisms[asterism.name]) asterisms[asterism.name] = [];
-    asterisms[asterism.name].push(quad.map(transform))
-    return asterisms;
-  }, {});
+    fold && results.folds.push(mapEdge(fold))
+    results.cuts.push(...cuts.map(mapEdge))
+    return results
+  }, { cuts: [], folds: [] })
 
-  function segment([a, b]) {
-    return element(
-      'line',
-      {
-        x1: a.x, x2: b.x,
-        y1: a.y, y2: b.y
-      }
-    );
-  }
+  const starPaths = stars.reduce((results, { paths }) => {
+    paths.forEach(path => {
+      const { polygonId } = path
+      const transform = transformations[polygonId]
+      results.push(path.clone().applyMatrix4(transform))
+    })
 
-  const cutStrokeAttrs = {
-    stroke: 'red',
-    'stroke-width': '0.01pt',
-    fill: 'transparent'
-  }
+    return results
+  }, [])
+
+  const asterismQuads = asterisms.reduce((results, { polygonId, quad }) => {
+    const transform = transformations[polygonId]
+    const mapQuad = p => p.clone().applyMatrix4(transform)
+
+    return [...results, quad.map(mapQuad)]
+  }, [])
+
+  const cutStrokeAttrs = { stroke: 'red', 'stroke-width': '0.01pt', fill: 'transparent' }
 
   document.body.appendChild(
-		element('svg', {
-			id: 'output',
-			preserveAspectRatio: 'none',
-			viewBox: viewbox.join(' ')
-		}, [
+    element('svg', {
+      id: 'output',
+      preserveAspectRatio: 'none',
+      viewBox: viewbox.join(' ')
+    }, [
       element('g', cutStrokeAttrs, [element('rect', { x: 0, y: 0, width: 2.54, height: 2.54 })]),
-			element('g', cutStrokeAttrs, cuts.map(segment)),
-			element('g', {stroke: 'blue', 'stroke-width': 0.015}, folds.map(segment)),
+      element('g', cutStrokeAttrs, cuts.map(cut => (
+        element('path', { d: lineDirective(cut) })
+      ))),
+      element('g', {stroke: 'blue', 'stroke-width': 0.015}, folds.map(fold => (
+        element('path', { d: lineDirective(fold) })
+      ))),
       element('g', cutStrokeAttrs,
-        starPaths.map(curve =>
-          element('path', {
-            d: curveDirective(curve)
-          }))
+        starPaths.map(path => element('path', { d: pathDirective(path) }))
       ),
-			element('g', Object.assign({id: 'asterisms-groups'}, cutStrokeAttrs),
-        Object.keys(asterisms).map(name =>
-          element('g', {id: `${name}-lines`}, (
-            asterisms[name].map(quad => (
-              element('path', {d: asterismEdgeDirective(quad) })
-            ))
-          ))
-        )
-			)
-		])
-	);
+      element('g', cutStrokeAttrs, asterismQuads.map(quad => (
+        element('path', { d: asterismEdgeDirective(quad) })
+      )))
+    ])
+  );
 }
