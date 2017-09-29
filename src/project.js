@@ -122,6 +122,7 @@ const build = (topology, projectedStars, projectedAsterisms) => {
 
     return {
       polygon,
+      normal: polygon.plane.normal.clone().applyMatrix4(rotation),
       matrix,
       fold,
       cuts
