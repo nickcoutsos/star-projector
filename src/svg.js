@@ -92,13 +92,15 @@ export function drawSVG(polygons, stars, asterisms) {
   const offset = boundingBox.min.clone().negate()
   // const scale = 100 / boundingBox.getSize().x
   const scale = 12.584086145276297
-  const width = (boundingBox.getSize().x + 1) * scale
-  const height = (boundingBox.getSize().y + 1) * scale
+  const edgeLength = polygons[0].polygon.edges[0].line.distance()
+  const tabHeight = edgeLength / 6
+  const width = (boundingBox.getSize().x + tabHeight*2) * scale
+  const height = (boundingBox.getSize().y + tabHeight*2) * scale
 
   const viewbox = [0, 0, width, height]
   const viewboxTransform = new Matrix4()
     .multiply(new Matrix4().makeScale(scale, scale, 1))
-    .multiply(new Matrix4().makeTranslation(offset.x + .5, offset.y + .5, 0))
+    .multiply(new Matrix4().makeTranslation(offset.x + tabHeight, offset.y + tabHeight, 0))
     .multiply(aaRotation)
 
   const transformations = polygons.map(({ matrix }) => (
@@ -248,7 +250,7 @@ export function drawSVG(polygons, stars, asterisms) {
     return [...results, ...result]
   }, [])
 
-  const stroke = { 'stroke-width': '0.01pt', fill: 'transparent' }
+  const stroke = { 'stroke-width': '0.01pt', fill: 'none' }
   const strokeRed = Object.assign({}, stroke, { stroke: 'red' })
   const strokeBlue = Object.assign({}, stroke, { stroke: 'blue' })
   // const strokeDotBlack = Object.assign({}, stroke, { stroke: 'black', 'stroke-width': '.035pt', 'stroke-dasharray': '.2, .3' })
@@ -257,7 +259,9 @@ export function drawSVG(polygons, stars, asterisms) {
     element('svg', {
       id: 'output',
       preserveAspectRatio: 'xMinYMin',
-      viewBox: viewbox.join(' ')
+      viewBox: viewbox.join(' '),
+      width: `${width}cm`,
+      height: `${height}cm`
     }, [
       element('g', strokeRed, [element('rect', { x: 0, y: 0, width: 2.54, height: 2.54 })]),
       element('g', strokeRed, cuts.map(cut => (
