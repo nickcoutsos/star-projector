@@ -73,10 +73,83 @@ const getOrientationMatrix = points => {
 
 const getTabAngle = polygon => {
   const [ edge ] = polygon.edges
-  const innerAngle = edge.vector.angleTo(edge.next.vector)
-  const remainingAngle = 2*Math.PI - 3*innerAngle
+  const edgeAngle = Math.PI - edge.vector.angleTo(edge.next.vector)
+  const innerAngle = edgeAngle > Math.PI
+    ? edgeAngle - Math.PI
+    : edgeAngle
 
-  return remainingAngle
+  const remainingAngle = (2*Math.PI) % innerAngle
+  const tabAngle = remainingAngle < 1e-6 ? innerAngle : remainingAngle
+
+  return tabAngle
+}
+
+const getTabDimensions = (transformations, polygon) => {
+  const edge = polygon.edges[0]
+  const tabAngle = getTabAngle(polygon)
+  const transform = transformations[polygon.index]
+  const transformed = edge.line.clone().applyMatrix4(transform)
+  const transformedVector = transformed.delta()
+  const base = transformed.distance()
+
+  const potentialHeight = base/2 * Math.tan(tabAngle)
+  const desiredHeight = base / 10
+  const resultingBase = 2 * (potentialHeight - desiredHeight) / Math.tan(tabAngle)
+  const baseOffsetFactor = (resultingBase > 0 ? resultingBase : base) / base
+
+  return { desiredHeight, baseOffsetFactor }
+}
+
+const getTabMaker = (transformations, polygon) => {
+  const { desiredHeight, baseOffsetFactor } = getTabDimensions(transformations, polygon)
+
+  return edge => {
+    const transform = transformations[edge.poly.index]
+    const transformed = edge.line.clone().applyMatrix4(transform)
+    const transformedVector = transformed.delta()
+
+    const outward = transformed.getCenter()
+      .sub(edge.poly.center.clone().applyMatrix4(transform))
+      .normalize()
+      .multiplyScalar(desiredHeight)
+
+    const outerEdgeStart = transformed.at(.5 - baseOffsetFactor/2).add(outward)
+    const outerEdgeEnd = transformed.at(.5 + baseOffsetFactor/2).add(outward)
+
+    const targetTransform = transformations[edge.shared.poly.index]
+    const targetLine = edge.shared.line.clone().applyMatrix4(targetTransform)
+    const targetVector = targetLine.delta().negate()
+    const cross = transformedVector.clone().cross(targetVector)
+
+    const rotation = transformedVector.angleTo(targetVector) * (
+      Math.abs(cross.z) > 1e-6 ? Math.sign(cross.z) : 1
+    )
+
+    const toOrigin = transformed.start.clone().negate()
+    const toTargetPoint = targetLine.end.clone()
+
+    const toTarget = new Matrix4()
+      .multiply(new Matrix4().makeTranslation(...toTargetPoint.toArray()))
+      .multiply(new Matrix4().makeRotationZ(rotation))
+      .multiply(new Matrix4().makeTranslation(...toOrigin.toArray()))
+
+    const tabQuad = [transformed.start, outerEdgeStart, outerEdgeEnd, transformed.end]
+    const overlapQuad = tabQuad.map(p => p.clone().applyMatrix4(toTarget))
+
+    return {
+      id: edge.id,
+      polygonId: edge.poly.index,
+      toTab: new Matrix4().getInverse(toTarget),
+      quad: tabQuad,
+      overlap: overlapQuad,
+      poly: {
+        triangles: [
+          new Triangle(overlapQuad[0], overlapQuad[3], overlapQuad[1]),
+          new Triangle(overlapQuad[3], overlapQuad[2], overlapQuad[1])
+        ]
+      }
+    }
+  }
 }
 
 export function drawSVG(polygons, stars, asterisms) {
@@ -107,68 +180,17 @@ export function drawSVG(polygons, stars, asterisms) {
     matrix.clone().premultiply(viewboxTransform)
   ))
 
-  const tabAngle = getTabAngle(polygons[0].polygon)
+  const tabMaker = getTabMaker(transformations, polygons[0].polygon)
   const tabs = polygons.reduce((tabs, { polygon, normal, matrix, cuts }, polygonId) => {
     const transform = transformations[polygonId]
 
-    cuts.forEach(({ id, line, shared }) => {
-      const existing = tabs.find(edge => edge.id === id)
+    cuts.forEach(cut => {
+      const existing = tabs.find(edge => edge.id === cut.id)
       if (existing) {
         return
       }
 
-
-      // TODO: Apparently this is wrong. For length/6 we get the desired results
-      // but any other fraction of the original length is giving the wrong tab
-      // height.
-      const transformed = line.clone().applyMatrix4(transform)
-      const transformedVector = transformed.delta()
-      const length = transformed.distance()
-      const potentialHeight = length/2 * Math.tan(tabAngle)
-      const desiredHeight = length / 6
-      const resultingLength = 2 * (potentialHeight - desiredHeight) * Math.tan(tabAngle)
-      const lengthOffsetFactor = resultingLength / length
-
-      const outward = transformed.getCenter()
-        .sub(polygon.center.clone().applyMatrix4(transform))
-        .normalize()
-        .multiplyScalar(desiredHeight)
-
-      const outerEdgeStart = transformed.at(1 - lengthOffsetFactor).add(outward)
-      const outerEdgeEnd = transformed.at(lengthOffsetFactor).add(outward)
-
-      const targetTransform = transformations[shared.poly.index]
-      const targetLine = shared.line.clone().applyMatrix4(targetTransform)
-      const targetVector = targetLine.delta().negate()
-      const cross = transformedVector.clone().cross(targetVector)
-      const rotation = transformedVector.angleTo(targetVector) * Math.sign(cross.z)
-
-      const toOrigin = transformed.start.clone().negate()
-      const toTargetPoint = targetLine.end.clone()
-
-      const toTarget = new Matrix4()
-        .multiply(new Matrix4().makeTranslation(...toTargetPoint.toArray()))
-        .multiply(new Matrix4().makeRotationZ(rotation))
-        .multiply(new Matrix4().makeTranslation(...toOrigin.toArray()))
-
-      // TODO: generate a transformation matrix based on the shared edge's
-      // position and angle relative to this one
-
-      const tabQuad = [transformed.start, outerEdgeStart, outerEdgeEnd, transformed.end]
-      const overlapQuad = tabQuad.map(p => p.clone().applyMatrix4(toTarget))
-
-      tabs.push({
-        id, polygonId,
-        toTab: new Matrix4().getInverse(toTarget),
-        quad: tabQuad,
-        overlap: overlapQuad,
-        poly: {
-          triangles: [
-            new Triangle(overlapQuad[0], overlapQuad[3], overlapQuad[1]),
-            new Triangle(overlapQuad[3], overlapQuad[2], overlapQuad[1])
-          ]
-        }
-      })
+      tabs.push(tabMaker(cut))
     })
 
     return tabs
