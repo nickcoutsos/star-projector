@@ -58,4 +58,7 @@ function indexEdges(polygonEdges) {
 }
 
 const pairId = (...verts) => verts.sort((a, b) => a - b).join('-')
-const cycle = (array, step=1) => index => array[(index + step) % array.length]
+const cycle = (array, step=1) => index => {
+  const next = (index + step) % array.length
+  return array[next < 0 ? array.length + next : next]
+}
