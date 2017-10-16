@@ -1,6 +1,8 @@
 import {Box2, Matrix4, Triangle, Vector3} from 'three';
 import hull from 'convexhull-js';
 
+const svgHeader = '<?xml version="1.0" standalone="no"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">'
+
 /**
  * Create a DOM element in the SVG namespace.
  *
@@ -275,35 +277,64 @@ export function drawSVG(polygons, stars, asterisms) {
   const stroke = { 'stroke-width': '0.01pt', fill: 'none' }
   const strokeRed = Object.assign({}, stroke, { stroke: 'red' })
   const strokeBlue = Object.assign({}, stroke, { stroke: 'blue' })
+  // const strokeDotRed = Object.assign({}, stroke, { stroke: 'red', 'stroke-width': '.035pt', 'stroke-dasharray': '.2, .3' })
   // const strokeDotBlack = Object.assign({}, stroke, { stroke: 'black', 'stroke-width': '.035pt', 'stroke-dasharray': '.2, .3' })
 
-  document.body.appendChild(
-    element('svg', {
-      id: 'output',
-      preserveAspectRatio: 'xMinYMin',
-      viewBox: viewbox.join(' '),
-      width: `${width}cm`,
-      height: `${height}cm`
-    }, [
-      element('g', strokeRed, [element('rect', { x: 0, y: 0, width: 2.54, height: 2.54 })]),
-      element('g', strokeRed, cuts.map(cut => (
-        element('path', { d: lineDirective(cut) })
-      ))),
-      element('g', strokeBlue, folds.map(fold => (
-        element('path', { d: lineDirective(fold) })
-      ))),
-      element('g', strokeRed,
-        starPaths.map(path => element('path', { d: pathDirective(path) }))
-      ),
-      element('g', strokeRed, asterismQuads.map(quad => (
-        element('path', { d: asterismEdgeDirective(quad) })
-      ))),
-      element('g', strokeRed, tabs.map(({ quad }) => (
-        element('path', { d: polyDirective(quad) })
-      ))),
-      // element('g', strokeDotBlack, tabs.map(({ overlap }) => (
-      //   element('path', { d: polyDirective(overlap) })
-      // )))
-    ])
-  );
+  const container = element('svg', {
+    id: 'output',
+    preserveAspectRatio: 'xMinYMin',
+    viewBox: viewbox.join(' '),
+    width: `${width}cm`,
+    height: `${height}cm`
+  }, [
+    element('g', strokeRed, [element('rect', { x: 0, y: 0, width: 2.54, height: 2.54 })]),
+    element('g', strokeRed, cuts.map(cut => (
+      element('path', { d: lineDirective(cut) })
+    ))),
+    element('g', strokeBlue, folds.map(fold => (
+      element('path', { d: lineDirective(fold) })
+    ))),
+    element('g', strokeRed,
+      starPaths.map(path => element('path', { d: pathDirective(path) }))
+    ),
+    element('g', strokeRed, asterismQuads.map(quad => (
+      element('path', { d: asterismEdgeDirective(quad) })
+    ))),
+    element('g', strokeRed, tabs.map(({ quad }) => (
+      element('path', { d: polyDirective(quad) })
+    ))),
+    // element('g', strokeDotBlack, tabs.map(({ overlap }) => (
+    //   element('path', { d: polyDirective(overlap) })
+    // )))
+  ])
+
+  const actions = document.createElement('div')
+  actions.style.position = 'absolute'
+  actions.style.top = 0
+  actions.style.right = 0
+  actions.style.padding = '20px'
+
+  const close = document.createElement('button')
+  close.textContent = 'Close'
+  close.addEventListener('click', () => {
+    document.body.removeChild(actions)
+    document.body.removeChild(container)
+  })
+
+  const save = document.createElement('button')
+  save.textContent = 'Save'
+  save.addEventListener('click', () => {
+    const file = new Blob(
+      [svgHeader + '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"' + container.outerHTML.slice(4)],
+      { fileName: 'star-net.svg', type: 'image/svg+xml', disposition: 'attachment' }
+    )
+
+    const url = URL.createObjectURL(file)
+    location.href = url
+  })
+
+  document.body.appendChild(container)
+  document.body.appendChild(actions)
+  actions.appendChild(save)
+  actions.appendChild(close)
 }
