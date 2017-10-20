@@ -48,7 +48,7 @@ CubicBezierCurve3.prototype.intersectLine = function(line) {
     .intersects({p1: start, p2: end})
     .sort((a, b) => a - b)
     .map(t => ({t}))
-    .filter(t => {
+    .filter(({t}) => {
       const point = this.getPointAt(t)
       return lineContainsPoint(line, point)
     })
