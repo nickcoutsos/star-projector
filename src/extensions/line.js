@@ -21,3 +21,11 @@ Line3.fromArray = function([a, b]) {
     new Vector3(...b)
   )
 }
+
+Line3.prototype.containsPoint = function(point) {
+  const t = this.closestPointToPointParameter(point)
+  return (
+    t >= 0 && t <= 1 &&
+    this.at(t).distanceToSquared(point) < 1e-6
+  )
+}
