@@ -1,4 +1,4 @@
-import {Line3, Vector3} from 'three'
+import {Line3, Plane, Vector3} from 'three'
 import './vector'
 
 Line3.prototype.toPoints = function() {
@@ -28,4 +28,20 @@ Line3.prototype.containsPoint = function(point) {
     t >= 0 && t <= 1 &&
     this.at(t).distanceToSquared(point) < 1e-6
   )
+}
+
+Line3.prototype.intersectLine = function(line) {
+  const orthogonal = this.delta().applyAxisAngle(new Vector3(0, 0, 1), Math.PI/2)
+  const plane = new Plane().setFromNormalAndCoplanarPoint(orthogonal, this.start)
+  const point = plane.intersectLine(line)
+  const t = point && line.closestPointToPointParameter(point)
+
+  if (!point) {
+    return null
+  } else if (t < 0 || t > 1) {
+    console.log('wtf', t)
+    return null
+  }
+
+  return point
 }

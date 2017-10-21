@@ -335,8 +335,14 @@ export function drawSVG(polygons, stars, asterisms) {
     const { polygon } = polygons[polygonId]
     const transform = transformations[polygonId]
     const mapped = quad.map(p => p.clone().applyMatrix4(transform))
-    const result = [mapped]
+    const mappedLines = [
+      new Line3(mapped[0], mapped[1]),
+      new Line3(mapped[2], mapped[3]),
+      new Line3(mapped[4], mapped[5]),
+      new Line3(mapped[6], mapped[7])
+    ]
 
+    const result = mappedLines
     const potentialOverlaps = tabs.filter(tab => (
       tab.polygonId !== polygonId &&
       polygon.edges.some(edge => edge.id === tab.id)
@@ -347,11 +353,39 @@ export function drawSVG(polygons, stars, asterisms) {
         tab.poly.triangles.some(triangle => triangle.containsPoint(point))
       ))
 
-      // TODO: intersect overlapped quad with tab and discard sections that fall
-      // outside of the tab's boundary.
-      if (overlap) {
-        result.push(mapped.map(p => p.clone().applyMatrix4(tab.toTab)))
+      // TODO: Account for lines that span an overlapping tab without either end
+      // point being contained by the tab
+      if (!overlap) {
+        return
       }
+
+      mappedLines.forEach(edge => {
+        const insidePoints = edge.toPoints().filter(tab.poly.containsPoint)
+        if (insidePoints.length === 0) {
+          return
+        } else if (insidePoints.length === 2) {
+          // the whole line is inside the tab, just copy it
+          result.push(edge.clone().applyMatrix4(tab.toTab))
+          return
+        }
+
+        const [insidePoint] = insidePoints
+        const intersectionPoints = tab.overlapEdges
+          .map(boundary => boundary.intersectLine(edge))
+          .filter(point => !!point)
+
+        if (intersectionPoints.length > 1) {
+          intersectionPoints.sort((a, b) => (
+            insidePoint.distanceToSquared(a) -
+            insidePoint.distanceToSquared(b)
+          ))
+        }
+
+        result.push(
+          new Line3(insidePoint, intersectionPoints[0])
+            .clone().applyMatrix4(tab.toTab)
+        )
+      })
     })
 
     return [...results, ...result]
@@ -362,7 +396,7 @@ export function drawSVG(polygons, stars, asterisms) {
   const strokeBlue = Object.assign({}, stroke, { stroke: 'blue' })
   // const strokeDotRed = Object.assign({}, stroke, { stroke: 'red', 'stroke-width': '.035pt', 'stroke-dasharray': '.2, .3' })
   // const strokeDotBlack = Object.assign({}, stroke, { stroke: 'black', 'stroke-width': '.035pt', 'stroke-dasharray': '.2, .3' })
-
+// console.log(asterismQuads)
   const container = element('svg', {
     id: 'output',
     preserveAspectRatio: 'xMinYMin',
@@ -380,8 +414,8 @@ export function drawSVG(polygons, stars, asterisms) {
     element('g', strokeRed,
       starPaths.map(path => element('path', { d: pathDirective(path) }))
     ),
-    element('g', strokeRed, asterismQuads.map(quad => (
-      element('path', { d: asterismEdgeDirective(quad) })
+    element('g', strokeRed, asterismQuads.map(edge => (
+      element('path', { d: lineDirective(edge.toPoints()) })
     ))),
     element('g', strokeRed, tabs.map(({ quad }) => (
       element('path', { d: polyDirective(quad) })
