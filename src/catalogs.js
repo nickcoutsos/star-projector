@@ -77,15 +77,20 @@ const projectAsterismLine = (topology, pair) => (
   projections.line(topology, ...pair).then(segments => {
     segments.forEach(segment => {
       segment.edge = segment.edge.map(p => p.clone())
-      // TODO: ensure segment points aren't offset beyond the line's original length
-      // TODO: ensure segment points aren't offset beyond one another
       const [a, b] = segment.edge
       const [a_, b_] = [a, b].map(p => p.clone())
       const length = a.distanceTo(b)
-      const STAR_OFFSET = .02 / length
+      const STAR_OFFSET = .0225 / length
       const EDGE_OFFSET = .008 / length
       const QUAD_ARC = .32
       const QUAD_THICKNESS = scaleFromArc(QUAD_ARC, a.length())
+
+      const aLerpDist = pair.some(star => a_.equals(star)) ? STAR_OFFSET : EDGE_OFFSET
+      const bLerpDist = pair.some(star => b_.equals(star)) ? STAR_OFFSET : EDGE_OFFSET
+
+      if (Math.max(aLerpDist, bLerpDist) > .5) {
+        return
+      }
 
       const polygon = topology.polygons[segment.polygonId]
       const cross = polygon.plane.normal
@@ -94,8 +99,8 @@ const projectAsterismLine = (topology, pair) => (
         .normalize()
         .multiplyScalar(QUAD_THICKNESS / 2)
 
-      a.lerp(b_, pair.some(star => a_.equals(star)) ? STAR_OFFSET : EDGE_OFFSET)
-      b.lerp(a_, pair.some(star => b_.equals(star)) ? STAR_OFFSET : EDGE_OFFSET)
+      a.lerp(b_, aLerpDist, .5)
+      b.lerp(a_, bLerpDist, .5)
 
       segment.quad = ([
         a.clone().add(cross),
@@ -107,7 +112,7 @@ const projectAsterismLine = (topology, pair) => (
         .reduce((a, b) => a.concat(b))
     })
 
-    return segments
+    return segments.filter(segment => segment.quad)
   })
 )
 
