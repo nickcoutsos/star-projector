@@ -1,4 +1,4 @@
-import {Box2, Matrix4, Triangle, Vector3} from 'three';
+import {Box2, CurvePath, Line3, Matrix4, Triangle, Vector3} from 'three';
 import hull from 'convexhull-js';
 
 const svgHeader = '<?xml version="1.0" standalone="no"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">'
@@ -91,7 +91,6 @@ const getTabDimensions = (transformations, polygon) => {
   const tabAngle = getTabAngle(polygon)
   const transform = transformations[polygon.index]
   const transformed = edge.line.clone().applyMatrix4(transform)
-  const transformedVector = transformed.delta()
   const base = transformed.distance()
 
   const potentialHeight = base/2 * Math.tan(tabAngle)
@@ -137,6 +136,17 @@ const getTabMaker = (transformations, polygon) => {
 
     const tabQuad = [transformed.start, outerEdgeStart, outerEdgeEnd, transformed.end]
     const overlapQuad = tabQuad.map(p => p.clone().applyMatrix4(toTarget))
+    const triangles = [
+      new Triangle(overlapQuad[0], overlapQuad[3], overlapQuad[1]),
+      new Triangle(overlapQuad[3], overlapQuad[2], overlapQuad[1])
+    ]
+
+    const overlapEdges = [
+      new Line3(overlapQuad[0], overlapQuad[1]),
+      new Line3(overlapQuad[1], overlapQuad[2]),
+      new Line3(overlapQuad[2], overlapQuad[3]),
+      new Line3(overlapQuad[3], overlapQuad[0]),
+    ]
 
     return {
       id: edge.id,
@@ -144,11 +154,15 @@ const getTabMaker = (transformations, polygon) => {
       toTab: new Matrix4().getInverse(toTarget),
       quad: tabQuad,
       overlap: overlapQuad,
+      overlapEdges,
       poly: {
-        triangles: [
-          new Triangle(overlapQuad[0], overlapQuad[3], overlapQuad[1]),
-          new Triangle(overlapQuad[3], overlapQuad[2], overlapQuad[1])
-        ]
+        containsPoint: (point, excludeEdges=false) => {
+          const inTriangles = triangles.some(tri => tri.containsPoint(point))
+          const inEdges = overlapEdges.some(edge => edge.containsPoint(point))
+
+          return inTriangles && (!excludeEdges || !inEdges)
+        },
+        triangles
       }
     }
   }
@@ -169,13 +183,14 @@ export function drawSVG(polygons, stars, asterisms) {
   const scale = 12.584086145276297
   const edgeLength = polygons[0].polygon.edges[0].line.distance()
   const tabHeight = edgeLength / 6
-  const width = (boundingBox.getSize().x + tabHeight*2) * scale
-  const height = (boundingBox.getSize().y + tabHeight*2) * scale
+  const padding = tabHeight
+  const width = (boundingBox.getSize().x + padding) * scale
+  const height = (boundingBox.getSize().y + padding) * scale
 
   const viewbox = [0, 0, width, height]
   const viewboxTransform = new Matrix4()
     .multiply(new Matrix4().makeScale(scale, scale, 1))
-    .multiply(new Matrix4().makeTranslation(offset.x + tabHeight, offset.y + tabHeight, 0))
+    .multiply(new Matrix4().makeTranslation(offset.x + padding/2, offset.y + padding/2, 0))
     .multiply(aaRotation)
 
   const transformations = polygons.map(({ matrix }) => (
@@ -183,20 +198,15 @@ export function drawSVG(polygons, stars, asterisms) {
   ))
 
   const tabMaker = getTabMaker(transformations, polygons[0].polygon)
-  const tabs = polygons.reduce((tabs, { polygon, normal, matrix, cuts }, polygonId) => {
-    const transform = transformations[polygonId]
-
-    cuts.forEach(cut => {
+  const tabs = [].concat(...polygons.map(({cuts}) => cuts))
+    .reduce((tabs, cut) => {
       const existing = tabs.find(edge => edge.id === cut.id)
-      if (existing) {
-        return
+      if (!existing) {
+        tabs.push(tabMaker(cut))
       }
 
-      tabs.push(tabMaker(cut))
-    })
-
-    return tabs
-  }, [])
+      return tabs
+    }, [])
 
   const { cuts, folds } = polygons.reduce((results, { cuts, fold }, polygonId) => {
     const transform = transformations[polygonId]
@@ -230,17 +240,90 @@ export function drawSVG(polygons, stars, asterisms) {
       ))
 
       potentialOverlaps.forEach(tab => {
-        const overlap = transformed.curves.some(curve => {
-          return curve.getControlPoints().some(point => (
-            tab.poly.triangles.some(triangle => triangle.containsPoint(point))
-          ))
-        })
+        let anyPointIncluded = false
+        let anyPointExcluded = false
 
-        // TODO: find intersections between overlapped curves and tabs and
-        // discard sections that fall outside of the tab's boundary.
-        if (overlap) {
-          const copy = transformed.clone().applyMatrix4(tab.toTab)
-          results.push(copy)
+        for (let curve of transformed.curves) {
+          for (let point of curve.getControlPoints()) {
+            if (tab.poly.containsPoint(point)) anyPointIncluded = true
+            else anyPointExcluded = true
+          }
+        }
+
+        // If none of the  control points of the curve fell inside the tab there
+        // isn't any need to continue processing this path.
+        if (!anyPointIncluded) {
+          return
+        }
+
+        // If none of the control points fall outside of the tab then we can
+        // simply copy the path as a whole and shift it into the tab's space.
+        if (!anyPointExcluded) {
+          results.push(transformed.clone().applyMatrix4(tab.toTab))
+          return
+        }
+
+        const clippedCurve = transformed.curves.reduce((clipped, curve) => {
+          const anyPointIncluded = curve.getControlPoints().some(point => tab.poly.containsPoint(point))
+
+          if (!anyPointIncluded) {
+            // console.log('nevermind')
+            return clipped
+          }
+
+          tab.overlapEdges.forEach(edge => {
+            const intersections = curve.intersectLine(edge)
+
+            if (intersections.length === 0) {
+              // The curve doesn't intersect, but some points lie inside; that
+              // means they all do and we can copy it in full.
+              clipped.push(curve.clone())
+              return
+            }
+
+            if (intersections.length === 1) {
+              const [a, b] = curve.splitAt(intersections[0].t)
+              const aInside = a.getControlPoints().some(p => tab.poly.containsPoint(p, true))
+
+              const kept = aInside ? a : b
+              clipped.push(kept.clone())
+            }
+
+            if (intersections.length > 1) {
+              // TODO: this needs to be accounted for, but so far it hasn't been
+              // an issue.
+              console.warn('multi-intersect', intersections)
+            }
+          })
+
+          return clipped
+        }, [])
+
+        if (clippedCurve.length) {
+          // A curve that doesn't begin where the last ends must be its own path
+          const clippedPaths = clippedCurve.reduce((paths, curve) => {
+            const currentPath = paths.slice(-1)[0]
+            const previous = currentPath.curves.slice(-1)[0]
+            const previousEnd = previous && previous.getControlPoints()[3]
+            const currentStart = curve.getControlPoints()[0]
+            const disjoint = previousEnd !== currentStart
+
+            let target = currentPath
+
+            if (disjoint) {
+              target = new CurvePath()
+              paths.push(target)
+            }
+
+            target.add(curve)
+            return paths
+          }, [new CurvePath()])
+
+          results.push(
+            ...clippedPaths
+              .filter(path => path.curves.length > 0)
+              .map(path => path.clone().applyMatrix4(tab.toTab))
+          )
         }
       })
     })
