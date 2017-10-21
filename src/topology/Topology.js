@@ -1,12 +1,23 @@
+import { Vector3, Matrix4 } from 'three'
 import organizePolygons, { pointInPolygon } from './polygons'
 import edgesFromPolygons from './edges'
 
 export default class Topology {
-  constructor(geometry) {
-    this.geometry = geometry
-    this.vertices = geometry.vertices.map((v, index) => Object.assign(v.clone(), {index}))
+  constructor(geometry, options={ up: 'face' }) {
+    this.geometry = geometry.clone()
 
-    const polygons = organizePolygons(geometry.faces, this.vertices)
+    if (options.up === 'face') {
+      const normal = this.geometry.faces[0].normal.clone().normalize()
+      const up = new Vector3(0, 1, 0)
+      const angle = normal.angleTo(up)
+      const cross = normal.clone().cross(up).normalize()
+      this.geometry.applyMatrix(new Matrix4().makeRotationAxis(cross, angle))
+      this.geometry.computeFaceNormals()
+    }
+
+    this.vertices = this.geometry.vertices.map((v, index) => Object.assign(v.clone(), {index}))
+
+    const polygons = organizePolygons(this.geometry.faces, this.vertices)
     const polygon = polygons[0]
     const edges = edgesFromPolygons(polygons)
 
