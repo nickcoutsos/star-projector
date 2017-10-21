@@ -309,32 +309,40 @@ export function drawSVG(polygons, stars, asterisms) {
   ])
 
   const actions = document.createElement('div')
-  actions.style.position = 'absolute'
+  actions.style.position = 'fixed'
   actions.style.top = 0
   actions.style.right = 0
   actions.style.padding = '20px'
 
+  const blobUrl = URL.createObjectURL(new Blob(
+    [svgHeader + '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"' + container.outerHTML.slice(4)],
+    { type: 'application/octet-stream' }
+  ))
+
+  const saveButton = document.createElement('button')
+  saveButton.style.width = '90px'
+  saveButton.style.margin = '2px'
+  saveButton.textContent = 'Save'
+
+  const saveLink = document.createElement('a')
+  saveLink.style.display = 'block'
+  saveLink.href = blobUrl
+  saveLink.download = 'star-projector-net.svg'
+  saveLink.appendChild(saveButton)
+
   const close = document.createElement('button')
+  close.style.display = 'block'
+  close.style.width = '90px'
+  close.style.margin = '2px'
   close.textContent = 'Close'
   close.addEventListener('click', () => {
     document.body.removeChild(actions)
     document.body.removeChild(container)
-  })
-
-  const save = document.createElement('button')
-  save.textContent = 'Save'
-  save.addEventListener('click', () => {
-    const file = new Blob(
-      [svgHeader + '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"' + container.outerHTML.slice(4)],
-      { fileName: 'star-net.svg', type: 'image/svg+xml', disposition: 'attachment' }
-    )
-
-    const url = URL.createObjectURL(file)
-    location.href = url
+    URL.revokeObjectURL(blobUrl)
   })
 
   document.body.appendChild(container)
   document.body.appendChild(actions)
-  actions.appendChild(save)
+  actions.appendChild(saveLink)
   actions.appendChild(close)
 }
