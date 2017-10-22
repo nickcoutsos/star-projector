@@ -28,8 +28,9 @@
   "dependencies": {
     "async": "2.4.0",
     "bezier-js": "2.2.3",
-    "debounce": "1.0.0",
     "convexhull-js": "1.0.0",
+    "debounce": "1.0.0",
+    "lodash": "4.17.4",
     "parse-svg-path": "0.1.2",
     "sift": "3.2.6",
     "three": "0.81.2",

@@ -1,3 +1,4 @@
+import { groupBy } from 'lodash'
 import {Box2, CurvePath, Line3, Matrix4, Triangle, Vector3} from 'three';
 import hull from 'convexhull-js';
 
@@ -12,11 +13,17 @@ const svgHeader = '<?xml version="1.0" standalone="no"?><!DOCTYPE svg PUBLIC "-/
  * @returns {DOMNode}
  */
 export function element(tagname, attributes={}, children=[]) {
-  let node = document.createElementNS('http://www.w3.org/2000/svg', tagname);
-  Object.keys(attributes).forEach(k => node.setAttribute(k, attributes[k]));
-  children.forEach(child => node.appendChild(child));
+  let node = document.createElementNS('http://www.w3.org/2000/svg', tagname)
+  Object.keys(attributes).forEach(k => node.setAttribute(k, attributes[k]))
+  children.forEach(child => {
+    if (!(child instanceof Node)) {
+      child = document.createTextNode(child)
+    }
 
-  return node;
+    node.appendChild(child)
+  })
+
+  return node
 }
 
 const lineDirective = ([ a, b ]) => {
@@ -183,7 +190,7 @@ export function drawSVG(polygons, stars, asterisms) {
   const scale = 12.584086145276297
   const edgeLength = polygons[0].polygon.edges[0].line.distance()
   const tabHeight = edgeLength / 6
-  const padding = tabHeight
+  const padding = tabHeight * 2
   const width = (boundingBox.getSize().x + padding) * scale
   const height = (boundingBox.getSize().y + padding) * scale
 
@@ -193,9 +200,11 @@ export function drawSVG(polygons, stars, asterisms) {
     .multiply(new Matrix4().makeTranslation(offset.x + padding/2, offset.y + padding/2, 0))
     .multiply(aaRotation)
 
-  const transformations = polygons.map(({ matrix }) => (
-    matrix.clone().premultiply(viewboxTransform)
-  ))
+  polygons.forEach(polygon => {
+    polygon.toViewbox = polygon.matrix.clone().premultiply(viewboxTransform)
+  })
+
+  const transformations = polygons.map(({ toViewbox }) => toViewbox)
 
   const tabMaker = getTabMaker(transformations, polygons[0].polygon)
   const tabs = [].concat(...polygons.map(({cuts}) => cuts))
@@ -232,7 +241,9 @@ export function drawSVG(polygons, stars, asterisms) {
       const transform = transformations[polygonId]
       const transformed = path.clone().applyMatrix4(transform)
 
-      results.push(transformed)
+      results.push(Object.assign(
+        transformed, {polygonId}
+      ))
 
       const potentialOverlaps = tabs.filter(tab => (
         tab.polygonId !== polygonId &&
@@ -240,6 +251,7 @@ export function drawSVG(polygons, stars, asterisms) {
       ))
 
       potentialOverlaps.forEach(tab => {
+        const { polygonId } = tab
         let anyPointIncluded = false
         let anyPointExcluded = false
 
@@ -259,7 +271,10 @@ export function drawSVG(polygons, stars, asterisms) {
         // If none of the control points fall outside of the tab then we can
         // simply copy the path as a whole and shift it into the tab's space.
         if (!anyPointExcluded) {
-          results.push(transformed.clone().applyMatrix4(tab.toTab))
+          results.push(Object.assign(
+            transformed.clone().applyMatrix4(tab.toTab),
+            { polygonId }
+          ))
           return
         }
 
@@ -322,7 +337,10 @@ export function drawSVG(polygons, stars, asterisms) {
           results.push(
             ...clippedPaths
               .filter(path => path.curves.length > 0)
-              .map(path => path.clone().applyMatrix4(tab.toTab))
+              .map(path => Object.assign(
+                path.clone().applyMatrix4(tab.toTab),
+                { polygonId }
+              ))
           )
         }
       })
@@ -391,12 +409,13 @@ export function drawSVG(polygons, stars, asterisms) {
     return [...results, ...result]
   }, [])
 
+  const starPathsByPolygon = groupBy(starPaths, 'polygonId')
+  // const asterismQuadsByPolygon = groupBy(asterismQuads, 'polygonId')
+
   const stroke = { 'stroke-width': '0.01pt', fill: 'none' }
   const strokeRed = Object.assign({}, stroke, { stroke: 'red' })
   const strokeBlue = Object.assign({}, stroke, { stroke: 'blue' })
-  // const strokeDotRed = Object.assign({}, stroke, { stroke: 'red', 'stroke-width': '.035pt', 'stroke-dasharray': '.2, .3' })
-  // const strokeDotBlack = Object.assign({}, stroke, { stroke: 'black', 'stroke-width': '.035pt', 'stroke-dasharray': '.2, .3' })
-// console.log(asterismQuads)
+
   const container = element('svg', {
     id: 'output',
     preserveAspectRatio: 'xMinYMin',
@@ -411,18 +430,42 @@ export function drawSVG(polygons, stars, asterisms) {
     element('g', strokeBlue, folds.map(fold => (
       element('path', { d: lineDirective(fold) })
     ))),
-    element('g', strokeRed,
-      starPaths.map(path => element('path', { d: pathDirective(path) }))
-    ),
+    // element('g', strokeRed,
+    //   starPaths.map(path => element('path', { d: pathDirective(path) }))
+    // ),
+    element('g', Object.assign({
+      id: 'stars'
+    }, strokeRed), polygons.map(({ polygon }) => (
+      element('g', {
+        id: `polygon-${polygon.index}`
+      }, starPathsByPolygon[polygon.index].map(path => (
+        element('path', {
+          d: pathDirective(path)
+        })
+      ))
+    )))),
     element('g', strokeRed, asterismQuads.map(edge => (
       element('path', { d: lineDirective(edge.toPoints()) })
     ))),
     element('g', strokeRed, tabs.map(({ quad }) => (
       element('path', { d: polyDirective(quad) })
     ))),
-    // element('g', strokeDotBlack, tabs.map(({ overlap }) => (
-    //   element('path', { d: polyDirective(overlap) })
-    // )))
+    element('g', {
+      id: 'polygon-labels',
+      fill: 'none',
+      stroke: 'magenta',
+      'stroke-width': '.02pt',
+      'font-family': 'Garamond',
+      'font-size': '1pt',
+      'text-anchor': 'middle'
+    }, polygons.map(({ polygon, toViewbox }, i) => {
+      const center = polygon.center.clone().applyMatrix4(toViewbox)
+      return element('text', {
+        x: center.x,
+        y: center.y,
+        dy: '.25pt'
+      }, [i])
+    }))
   ])
 
   const actions = document.createElement('div')
