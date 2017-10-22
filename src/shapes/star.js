@@ -15,7 +15,7 @@ const bezierStar = (numPoints, radius, innerRadius) => {
     .map((_,i) => new CubicBezierCurve3(
       polar(radius, b + i * a),
       polar(innerRadius, b + i * a + aN),
-      polar(innerRadius, b + i * a + aN + aN),
+      polar(innerRadius, b + i * a + aN * (numPoints - 1)),
       polar(radius, b + (i + 1) * a)
     ))
     .reduce(
