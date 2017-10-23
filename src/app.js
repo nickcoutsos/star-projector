@@ -51,7 +51,12 @@ new Vue({
   methods: {
     updateAsterisms() {
       return catalogs.loadAsterismCatalog({
-        starCounts: {$elemMatch: {count: {$gt: 3}}}
+        $or: [
+          {
+            starCounts: {$elemMatch: {count: {$gt: 3}}}
+          },
+          {name: 'Canis Major'}
+        ]
       }).then(
         asterisms => {
           this.availableAsterisms = asterisms;
