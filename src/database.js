@@ -1,5 +1,6 @@
 import 'whatwg-fetch';
 import sift from 'sift';
+import { partialRight, uniqBy } from 'lodash'
 
 var starCatalogBuckets = [
   {min: -2.00, max: 6.50, file: 'hd_mag__-2.00-6.50.json'},
@@ -66,7 +67,9 @@ export function loadStarCatalog(query={}) {
     .filter(value => typeof value === 'number')
   );
 
-  return fetchStarCatalogFilesByMagnitude(magnitude).then(sifter)
+  return fetchStarCatalogFilesByMagnitude(magnitude)
+    .then(sifter)
+    .then(partialRight(uniqBy, 'id'))
 }
 
 
