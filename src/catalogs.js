@@ -81,7 +81,7 @@ const projectAsterismLine = (topology, pair) => (
       const [a_, b_] = [a, b].map(p => p.clone())
       const length = a.distanceTo(b)
       const STAR_OFFSET = .0225 / length
-      const EDGE_OFFSET = .008 / length
+      const EDGE_OFFSET = .015 / length
       const QUAD_ARC = .32
       const QUAD_THICKNESS = scaleFromArc(QUAD_ARC, a.length())
 
