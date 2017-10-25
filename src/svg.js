@@ -4,6 +4,8 @@ import hull from 'convexhull-js';
 
 const svgHeader = '<?xml version="1.0" standalone="no"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">'
 
+const tabScale = 1 / 10
+
 /**
  * Create a DOM element in the SVG namespace.
  *
@@ -101,7 +103,7 @@ const getTabDimensions = (transformations, polygon) => {
   const base = transformed.distance()
 
   const potentialHeight = base/2 * Math.tan(tabAngle)
-  const desiredHeight = base / 10
+  const desiredHeight = base * tabScale
   const resultingBase = 2 * (potentialHeight - desiredHeight) / Math.tan(tabAngle)
   const baseOffsetFactor = (resultingBase > 0 ? resultingBase : base) / base
 
@@ -175,6 +177,12 @@ const getTabMaker = (transformations, polygon) => {
   }
 }
 
+const PHI = (1 + Math.sqrt(5)) / 2
+const dodecahedronInscribedRadiusRatio = (
+  Math.pow(PHI, 2) /
+  (2 * Math.sqrt(3 - PHI))
+)
+
 export function drawSVG(polygons, stars, asterisms) {
   const edges = getUnfoldedEdges(polygons)
   const edgeHull = getUnfoldedHull(edges)
@@ -183,21 +191,40 @@ export function drawSVG(polygons, stars, asterisms) {
     edgeHull.map(p => p.applyMatrix4(aaRotation))
   )
 
+
   // TODO: refactor this section into a function that allows for scaling based
   // on desired radius or edge length or maximum unfolded dimensions
   const offset = boundingBox.min.clone().negate()
   // const scale = 100 / boundingBox.getSize().x
-  const scale = 12.584086145276297
+  // const scale = 12.584086145276297
   const edgeLength = polygons[0].polygon.edges[0].line.distance()
-  const tabHeight = edgeLength / 6
-  const padding = tabHeight * 2
-  const width = (boundingBox.getSize().x + padding) * scale
-  const height = (boundingBox.getSize().y + padding) * scale
+  const tabHeight = edgeLength * tabScale
+  const padding = tabHeight * 1.25
 
-  const viewbox = [0, 0, width, height]
+  const paddedBoundingBox = boundingBox.getSize().add(
+    new Vector3(padding, padding, 0).multiplyScalar(2)
+  )
+
+  const availableWidth = 71 - padding*2
+  const availableScale = availableWidth / paddedBoundingBox.x
+  const availableHeight = availableScale * paddedBoundingBox.y
+  const availableEdgeLength = edgeLength * availableScale
+  const availableRadius = availableEdgeLength * dodecahedronInscribedRadiusRatio
+
+  const viewBoundingBox = paddedBoundingBox.multiplyScalar(availableScale)
+
+  console.log({
+    availableWidth,
+    availableHeight,
+    availableScale,
+    availableEdgeLength,
+    availableRadius
+  })
+
+  const viewbox = [0, 0, viewBoundingBox.x, viewBoundingBox.y]
   const viewboxTransform = new Matrix4()
-    .multiply(new Matrix4().makeScale(scale, scale, 1))
-    .multiply(new Matrix4().makeTranslation(offset.x + padding/2, offset.y + padding/2, 0))
+    .multiply(new Matrix4().makeScale(availableScale, availableScale, 1))
+    .multiply(new Matrix4().makeTranslation(offset.x + padding, offset.y + padding, 0))
     .multiply(aaRotation)
 
   polygons.forEach(polygon => {
@@ -420,8 +447,8 @@ export function drawSVG(polygons, stars, asterisms) {
     id: 'output',
     preserveAspectRatio: 'xMinYMin',
     viewBox: viewbox.join(' '),
-    width: `${width}cm`,
-    height: `${height}cm`
+    width: `${viewBoundingBox.x}cm`,
+    height: `${viewBoundingBox.y}cm`
   }, [
     element('g', strokeRed, [element('rect', { x: 0, y: 0, width: 2.54, height: 2.54 })]),
     element('g', strokeRed, cuts.map(cut => (
