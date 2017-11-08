@@ -1,0 +1,25 @@
+import Reveal from 'reveal.js'
+
+import slides from './slides'
+
+const slideDeck = document.querySelector('.reveal .slides')
+slides.forEach(slide => {
+  slideDeck.appendChild(slide.content)
+})
+
+Reveal.initialize()
+
+slides[0].activate && slides[0].activate()
+
+Reveal.addEventListener('slidechanged', ({ currentSlide, previousSlide }) => {
+  const current = slides.find(slide => slide.content === currentSlide)
+  const previous = slides.find(slide => slide.content === previousSlide)
+
+  if (previous && previous.deactivate) {
+    previous.deactivate()
+  }
+
+  if (current && current.activate) {
+    current.activate()
+  }
+})

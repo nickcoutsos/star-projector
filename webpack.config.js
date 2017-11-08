@@ -3,7 +3,10 @@ const webpack = require('webpack')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 
 module.exports = {
-  entry: path.resolve(__dirname, 'src/app.js'),
+  entry: {
+    app: path.resolve(__dirname, 'src/app.js'),
+    slides: path.resolve(__dirname, 'src/presentation/index.js')
+  },
   output: {
     filename: '[name].[chunkhash].js',
     path: path.resolve(__dirname, 'build')
@@ -27,8 +30,15 @@ module.exports = {
     ]
   },
   plugins: [
+     new HtmlWebpackPlugin({
+       template: './src/index.html',
+       filename: 'index.html',
+       chunks: ['app', 'manifest', 'vendor']
+     }),
     new HtmlWebpackPlugin({
-      template: './src/index.html'
+      template: './src/presentation/index.html',
+      filename: 'presentation/index.html',
+      chunks: ['slides', 'manifest', 'vendor']
     }),
     new webpack.optimize.CommonsChunkPlugin({
       name: 'vendor',
@@ -49,10 +59,10 @@ module.exports = {
       'vue$': 'vue/dist/vue.common.js'
     }
   },
-  externals: {
-    'three': 'THREE'
-  },
-  devtool: 'source-map',
+  // externals: {
+  //   'three': 'THREE'
+  // },
+  devtool: 'inline',
   devServer: {
     contentBase: './src',
     historyApiFallback: true,
