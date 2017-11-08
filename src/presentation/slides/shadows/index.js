@@ -37,12 +37,6 @@ content.appendChild(
       <rect fill="lightslategrey" x="800" y="0" width="800" height="900" />
       <rect id="wall" fill="slategrey" stroke="slategrey" x="800" y="0" width="20" height="900" />
 
-      <g style="display:none" fill="rgba(255, 255, 200, 0.3)">
-        <polyline id="upper-beam" />
-        <polyline id="lower-beam" />
-        <polyline id="full-beam" fill="rgba(255, 255, 200, 0.7)"/>
-      </g>
-
       <g id="beam-slices" stroke="none" fill="rgba(255, 255, 180, .1)">
         <polyline nvermindfill="hsla(10, 50%, 50%, 1)" />
         <polyline nvermindfill="hsla(30, 50%, 50%, 1)" />
@@ -61,35 +55,10 @@ content.appendChild(
         <polyline nvermindfill="hsla(90, 50%, 50%, 1)" />
       </g>
 
-      <polyline id="block-upper" fill="lightslategrey" />
-      <polyline id="block-lower" fill="lightslategrey" />
-
-      <g id="tangent-points">
-        <circle id="upper-tangent-outer" cx="400" cy="420" r="5" fill="red" />
-        <circle id="upper-tangent-inner" cx="400" cy="480" r="5" fill="magenta" />
-        <circle id="lower-tangent-inner" cx="400" cy="420" r="5" fill="cyan" />
-        <circle id="lower-tangent-outer" cx="400" cy="480" r="5" fill="blue" />
-      </g>
-
       <rect id="aperture" fill="lightgrey" x="800" y="400" width="20" height="100" />
 
-      <circle
-        id="lamp"
-        cx="400"
-        cy="450"
-        r="60"
-        stroke="orange"
-        fill="rgba(255, 255, 200, 0.6"
-      />
-
-      <circle
-        id="lamp-sizer"
-        cx="440"
-        cy="450"
-        r="10"
-        stroke="black"
-        fill="white"
-      />
+      <circle id="lamp" cx="400" cy="450" r="60" stroke="orange" fill="rgba(255, 255, 200, 0.6)" />
+      <circle id="lamp-sizer" cx="440" cy="450" r="10" stroke="black" fill="white" />
     </g>
   </svg>
 )
@@ -133,22 +102,6 @@ const update = point => {
   const lampRadius = Number(lamp.getAttribute('r'))
   updateCircle(lamp, point)
   updateCircle(lampSizer, {x: point.x - lampRadius, y: point.y})
-  updateTangentPoints(point)
-}
-
-const updateTangentPoints = (point) => {
-  const [upper, lower] = getAperturePoints()
-  const tangentPoints = content.querySelectorAll('#tangent-points circle')
-  const lampRadius = Number(lamp.getAttribute('r'))
-
-  const [upperTangentOuter, lowerTangentInner] = getTangentPoints(point, lampRadius, upper)
-  const [upperTangentInner, lowerTangentOuter] = getTangentPoints(point, lampRadius, lower)
-
-  updateCircle(tangentPoints[0], upperTangentOuter)
-  updateCircle(tangentPoints[1], upperTangentInner)
-  updateCircle(tangentPoints[2], lowerTangentInner)
-  updateCircle(tangentPoints[3], lowerTangentOuter)
-
   updateBeams(point)
 }
 
