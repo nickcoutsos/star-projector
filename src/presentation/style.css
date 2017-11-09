@@ -1,0 +1,46 @@
+.title .slide-background.present {
+	background:
+		radial-gradient(circle at center, darkred 0, rgba(0, 0, 0, 0) 70%),
+		url(assets/hudf_300dpi.jpg);
+	background-size: cover;
+}
+
+section[data-state="title"] h1 {
+	font-family: Georgia;
+	font-weight: bold;
+	font-size: 100px;
+	color: white;
+	text-shadow: 8px 5px 0px #368dfe;
+	letter-spacing: .1em;
+}
+
+section[data-state="title"] h2 {
+	color: white;
+	font-size: 48px;
+}
+
+#lamp:hover { cursor: grab; }
+#lamp.dragging { cursor: grabbing; }
+#lamp {
+	fill: rgb(255, 255, 250);
+	stroke: rgb(255, 240, 210);
+	stroke-width: 5;
+}
+#lamp[data-state="off"] {
+	fill: lightgrey;
+	stroke: grey;
+	stroke-width: 10;
+}
+
+#aperture:hover {
+	cursor: row-resize;
+	fill: lightgrey;
+}
+
+#lamp-sizer:hover {
+	cursor: ew-resize;
+}
+
+#wall:hover {
+	cursor: ew-resize;
+}

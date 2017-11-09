@@ -8,7 +8,16 @@ const findParentNode = (element, selector) => {
 }
 
 export const onDrag = (element, listener) => {
+  let dragging = false
+
+  element.addEventListener('click', (event) => {
+    if (dragging) {
+      event.stopImmediatePropagation()
+    }
+  })
+
   function move (event) {
+    dragging = true
     const svg = findParentNode(element, 'svg')
     const [viewBoxWidth, viewBoxHeight] = svg.getAttribute('viewBox').split(' ').slice(2).map(Number)
     const { width, height, top, left } = svg.getBoundingClientRect()
@@ -27,6 +36,7 @@ export const onDrag = (element, listener) => {
   }
 
   function detach () {
+    setTimeout(() => {dragging = false})
     element.classList.remove('dragging')
     window.removeEventListener('mousemove', move)
     window.removeEventListener('mouseup', detach)

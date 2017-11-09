@@ -1,4 +1,5 @@
 /** @jsx svgJSX */
+import { flatten, times } from 'lodash'
 import { onDrag, getTangentPoints, projectThrough } from './util'
 
 const element = ns => (tagname, attributes={}, ...children) => {
@@ -8,7 +9,7 @@ const element = ns => (tagname, attributes={}, ...children) => {
   )
 
   Object.keys(attributes || {}).forEach(k => node.setAttribute(k, attributes[k]))
-  children.forEach(child => {
+  flatten(children).forEach(child => {
     if (!(child instanceof Node)) {
       child = document.createTextNode(child)
     }
@@ -29,42 +30,36 @@ const viewBoxHeight = 900
 
 content.appendChild(
   <svg
+
     preserveAspectRatio="xMinYMin"
     viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
   >
-    <g>
-      <rect fill="rgba(255, 255, 235, 1)" x="0" y="0" width="1600" height="900" />
-      <rect fill="lightslategrey" x="800" y="0" width="800" height="900" />
-      <rect id="wall" fill="slategrey" stroke="slategrey" x="800" y="0" width="20" height="900" />
+    <defs>
+      <clipPath id="light-clip">
+        <circle r="0" />
+      </clipPath>
+    </defs>
 
-      <g id="beam-slices" stroke="none" fill="rgba(255, 255, 180, .1)">
-        <polyline nvermindfill="hsla(10, 50%, 50%, 1)" />
-        <polyline nvermindfill="hsla(30, 50%, 50%, 1)" />
-        <polyline nvermindfill="hsla(50, 50%, 50%, 1)" />
-        <polyline nvermindfill="hsla(70, 50%, 50%, 1)" />
-        <polyline nvermindfill="hsla(90, 50%, 50%, 1)" />
-        <polyline nvermindfill="hsla(10, 50%, 50%, 1)" />
-        <polyline nvermindfill="hsla(30, 50%, 50%, 1)" />
-        <polyline nvermindfill="hsla(50, 50%, 50%, 1)" />
-        <polyline nvermindfill="hsla(70, 50%, 50%, 1)" />
-        <polyline nvermindfill="hsla(90, 50%, 50%, 1)" />
-        <polyline nvermindfill="hsla(10, 50%, 50%, 1)" />
-        <polyline nvermindfill="hsla(30, 50%, 50%, 1)" />
-        <polyline nvermindfill="hsla(50, 50%, 50%, 1)" />
-        <polyline nvermindfill="hsla(70, 50%, 50%, 1)" />
-        <polyline nvermindfill="hsla(90, 50%, 50%, 1)" />
-      </g>
 
-      <rect id="aperture" fill="lightgrey" x="800" y="400" width="20" height="100" />
+    <rect clip-path="url(#light-clip)" fill="rgba(255, 255, 235, 1)" x="0" y="0" width="1600" height="900" />
+    <rect clip-path="url(#light-clip)" id="darkness" fill="lightslategrey" x="800" y="0" width="800" height="900" />
+    <rect id="wall" fill="slategrey" stroke="slategrey" x="800" y="0" width="20" height="900" />
 
-      <circle id="lamp" cx="400" cy="450" r="60" stroke="orange" fill="rgba(255, 255, 200, 0.6)" />
-      <circle id="lamp-sizer" cx="440" cy="450" r="10" stroke="black" fill="white" />
+    <g clip-path="url(#light-clip)" id="beam-slices" stroke="none" fill="rgba(255, 255, 180, .1)">
+      {times(12, n => <polyline afill={`hsla(${n/12 * 360}, 50%, 50%, 1)`} />)}
     </g>
+
+    <rect id="aperture" fill="lightgrey" x="800" y="400" width="20" height="100" />
+
+    <circle id="lamp" data-state="off" cx="400" cy="450" r="60" />
+    <circle id="lamp-sizer" cx="440" cy="450" r="10" stroke="black" fill="white" />
   </svg>
 )
 
 const lamp = content.querySelector('#lamp')
+const lampRadius = () => Number(lamp.getAttribute('r'))
 const lampSizer = content.querySelector('#lamp-sizer')
+const lampClip = content.querySelector('#light-clip circle')
 const aperture = content.querySelector('#aperture')
 const wall = content.querySelector('#wall')
 
@@ -91,6 +86,26 @@ onDrag(lamp, ({scaledX, scaledY}) => {
   update(cursor)
 })
 
+let t = 0
+let tDir = 1
+
+lamp.addEventListener('click', () => {
+  lamp.dataset.state = lamp.dataset.state === 'on' ? 'off' : 'on'
+  animate()
+})
+
+function animate () {
+  t += tDir * .1
+  if ((t < 1 && tDir > 0) || (t > 0 && tDir < 0)) {
+    requestAnimationFrame(animate)
+  } else {
+    tDir = tDir * -1
+  }
+
+  const radius = Math.max(0, Math.min(t * t * 2000, 2000))
+  lampClip.setAttribute('r', radius)
+}
+
 const update = point => {
   if (!point) {
     point = {
@@ -99,21 +114,20 @@ const update = point => {
     }
   }
 
-  const lampRadius = Number(lamp.getAttribute('r'))
   updateCircle(lamp, point)
-  updateCircle(lampSizer, {x: point.x - lampRadius, y: point.y})
+  updateCircle(lampSizer, {x: point.x - lampRadius(), y: point.y})
+  updateCircle(lampClip, point)
   updateBeams(point)
 }
 
 const updateBeams = (point) => {
   const [apertureUpper, apertureLower] = getAperturePoints()
   const beams = [...content.querySelectorAll('#beam-slices polyline')]
-  const lampRadius = Number(lamp.getAttribute('r'))
-  const [upper] = getTangentPoints(point, lampRadius, apertureUpper)
-  const [, lower] = getTangentPoints(point, lampRadius, apertureLower)
+  const [upper] = getTangentPoints(point, lampRadius(), apertureUpper)
+  const [, lower] = getTangentPoints(point, lampRadius(), apertureLower)
 
-  const dx = (lower.x - upper.x) / 1
-  const dy = (lower.y - upper.y) / 1
+  const dx = lower.x - upper.x
+  const dy = lower.y - upper.y
 
   for (let i in beams) {
     i = Number(i)
@@ -126,11 +140,9 @@ const updateBeams = (point) => {
     ].sort((a, b) => a.y - b.y)
 
     updatePolyline(beams[i], [
-      lower, upper,
-      apertureUpper, 
+      apertureUpper,
       ...projectedPoints,
-      apertureLower,
-      lower
+      apertureLower
     ])
   }
 }
@@ -146,10 +158,11 @@ onDrag(aperture, ({ scaledY }) => {
 })
 
 onDrag(wall, ({ scaledX }) => {
-  wall.setAttribute('x', scaledX)
   aperture.setAttribute('x', scaledX)
-  document.querySelector('rect').setAttribute('x', scaledX)
-  document.querySelector('rect').setAttribute('width', 1600 - scaledX)
+  const darkness = content.querySelector('#darkness')
+  wall.setAttribute('x', scaledX)
+  darkness.setAttribute('x', scaledX)
+  darkness.setAttribute('width', 1600 - scaledX)
   update()
 })
 
