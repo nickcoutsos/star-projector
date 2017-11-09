@@ -37,6 +37,7 @@ module.exports = {
       {
         test: /\.css$/,
         use: presentationCss.extract({
+          publicPath: '../',
           fallback: "style-loader",
           use: "css-loader"
         })

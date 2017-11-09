@@ -29,17 +29,12 @@ const viewBoxWidth = 1600
 const viewBoxHeight = 900
 
 content.appendChild(
-  <svg
-
-    preserveAspectRatio="xMinYMin"
-    viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
-  >
+  <svg preserveAspectRatio="xMinYMin" viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}>
     <defs>
       <clipPath id="light-clip">
-        <circle r="0" />
+        <circle data-state="off" r="0" />
       </clipPath>
     </defs>
-
 
     <rect clip-path="url(#light-clip)" fill="rgba(255, 255, 235, 1)" x="0" y="0" width="1600" height="900" />
     <rect clip-path="url(#light-clip)" id="darkness" fill="lightslategrey" x="800" y="0" width="800" height="900" />
@@ -86,25 +81,10 @@ onDrag(lamp, ({scaledX, scaledY}) => {
   update(cursor)
 })
 
-let t = 0
-let tDir = 1
-
 lamp.addEventListener('click', () => {
   lamp.dataset.state = lamp.dataset.state === 'on' ? 'off' : 'on'
-  animate()
+  lampClip.dataset.state = lampClip.dataset.state === 'on' ? 'off' : 'on'
 })
-
-function animate () {
-  t += tDir * .1
-  if ((t < 1 && tDir > 0) || (t > 0 && tDir < 0)) {
-    requestAnimationFrame(animate)
-  } else {
-    tDir = tDir * -1
-  }
-
-  const radius = Math.max(0, Math.min(t * t * 2000, 2000))
-  lampClip.setAttribute('r', radius)
-}
 
 const update = point => {
   if (!point) {
