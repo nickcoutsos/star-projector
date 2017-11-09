@@ -1,6 +1,9 @@
 import Reveal from 'reveal.js'
 
 import slides from './slides'
+import './style.css'
+import 'reveal.js/css/reveal.css'
+import 'reveal.js/css/theme/sky.css'
 
 const slideDeck = document.querySelector('.reveal .slides')
 slides.forEach(slide => {

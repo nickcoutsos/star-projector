@@ -1,6 +1,9 @@
 const path = require('path')
 const webpack = require('webpack')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
+const ExtractTextPlugin = require("extract-text-webpack-plugin")
+
+const presentationCss = new ExtractTextPlugin('presentation/[name].css')
 
 module.exports = {
   entry: {
@@ -26,6 +29,17 @@ module.exports = {
           { loader: 'worker-loader' },
           { loader: 'babel-loader' }
         ]
+      },
+      {
+        test: /\.(png|jpe?g)/,
+        use: 'file-loader'
+      },
+      {
+        test: /\.css$/,
+        use: presentationCss.extract({
+          fallback: "style-loader",
+          use: "css-loader"
+        })
       }
     ]
   },
@@ -38,7 +52,17 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: './src/presentation/index.html',
       filename: 'presentation/index.html',
-      chunks: ['slides', 'manifest', 'vendor']
+      chunks: ['slides', 'manifest', 'vendor', 'vendor-css']
+    }),
+    new webpack.optimize.CommonsChunkPlugin({
+      name: 'vendor-css',
+      minChunks: function (module) {
+       return (
+         module.context &&
+         module.context.indexOf('node_modules') !== -1 &&
+         module.context.match(/\.css$/)
+        )
+      }
     }),
     new webpack.optimize.CommonsChunkPlugin({
       name: 'vendor',
@@ -52,7 +76,8 @@ module.exports = {
     }),
     new webpack.optimize.CommonsChunkPlugin({
       name: 'manifest'
-    })
+    }),
+    presentationCss
   ],
   resolve: {
     alias: {
