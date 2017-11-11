@@ -22,14 +22,11 @@ section[data-state="title"] h2 {
 #lamp:hover { cursor: grab; }
 #lamp.dragging { cursor: grabbing; }
 #lamp {
-	fill: rgb(255, 255, 250);
-	stroke: rgb(255, 240, 210);
-	stroke-width: 5;
+	fill: rgb(255, 250, 220);
+	strone: none;
 }
 #lamp[data-state="off"] {
 	fill: lightgrey;
-	stroke: grey;
-	stroke-width: 10;
 }
 
 #aperture:hover {
@@ -37,12 +34,13 @@ section[data-state="title"] h2 {
 	fill: lightgrey;
 }
 
+#lamp-sizer {
+	stroke: none;
+	fill: white;
+}
 #lamp-sizer:hover {
 	cursor: ew-resize;
 }
-
-/*#light-clip circle { transition: r 200ms; }
-#light-clip [data-state="on"] { r: 2000; }*/
 
 #wall:hover {
 	cursor: ew-resize;

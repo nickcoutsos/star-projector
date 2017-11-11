@@ -9,6 +9,7 @@ const findParentNode = (element, selector) => {
 
 export const onDrag = (element, listener) => {
   let dragging = false
+  let start
 
   element.addEventListener('click', (event) => {
     if (dragging) {
@@ -16,8 +17,7 @@ export const onDrag = (element, listener) => {
     }
   })
 
-  function move (event) {
-    dragging = true
+  function coords (event) {
     const svg = findParentNode(element, 'svg')
     const [viewBoxWidth, viewBoxHeight] = svg.getAttribute('viewBox').split(' ').slice(2).map(Number)
     const { width, height, top, left } = svg.getBoundingClientRect()
@@ -25,13 +25,30 @@ export const onDrag = (element, listener) => {
       ? event.touches[0]
       : event
 
+    return [
+      (clientX - left) / width * viewBoxWidth,
+      (clientY - top) / height * viewBoxHeight
+    ]
+  }
+
+  function move (event) {
+    const [scaledX, scaledY] = coords(event)
+    const deltaX = scaledX - start[0]
+    const deltaY = scaledY - start[1]
+    const distance = Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2))
+
+    dragging = true
     listener(Object.assign(event, {
-      scaledX: (clientX - left) / width * viewBoxWidth,
-      scaledY: (clientY - top) / height * viewBoxHeight
+      scaledX,
+      scaledY,
+      deltaX,
+      deltaY,
+      distance
     }))
   }
 
-  function attach () {
+  function attach (event) {
+    start = coords(event)
     element.classList.add('dragging')
     window.addEventListener('mousemove', move)
     window.addEventListener('touchmove', move)

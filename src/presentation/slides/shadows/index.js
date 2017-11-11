@@ -38,16 +38,18 @@ content.appendChild(
 
     <rect clip-path="url(#light-clip)" fill="rgba(255, 255, 235, 1)" x="0" y="0" width="1600" height="900" />
     <rect clip-path="url(#light-clip)" id="darkness" fill="lightslategrey" x="800" y="0" width="800" height="900" />
-    <rect id="wall" fill="slategrey" stroke="slategrey" x="800" y="0" width="20" height="900" />
+
+    <rect id="wall" fill="slategrey" stroke="slategrey" x="800" y="0" width="30" height="900" />
 
     <g clip-path="url(#light-clip)" id="beam-slices" stroke="none" fill="rgba(255, 255, 200, .15)">
       {times(12, () => <polyline />)}
     </g>
 
-    <rect id="aperture" fill="lightgrey" x="800" y="400" width="20" height="100" />
+    <rect id="aperture" fill="lightgrey" x="800" y="400" width="30" height="100" />
 
+    <circle id="lamp-sizer" data-state="off" cx="400" cy="450" r="80" />
     <circle id="lamp" data-state="off" cx="400" cy="450" r="60" />
-    <circle id="lamp-sizer" cx="440" cy="450" r="10" stroke="black" fill="white" />
+    {/*<circle id="lamp-sizer" cx="440" cy="450" r="10" stroke="black" fill="white" />*/}
   </svg>
 )
 
@@ -70,7 +72,7 @@ const updatePolyline = (element, points) => {
 }
 
 const getAperturePoints = () => {
-  const x = Number(aperture.getAttribute('x')) + 10
+  const x = Number(aperture.getAttribute('x')) + 0
   const y = Number(aperture.getAttribute('y'))
   const h = Number(aperture.getAttribute('height'))
   return [ {x, y}, {x, y: y + h} ]
@@ -98,7 +100,7 @@ const update = point => {
   }
 
   updateCircle(lamp, point)
-  updateCircle(lampSizer, {x: point.x - lampRadius(), y: point.y})
+  updateCircle(lampSizer, point)
   updateCircle(lampClip, point)
   updateBeams(point)
 }
@@ -149,9 +151,13 @@ onDrag(wall, ({ scaledX }) => {
   update()
 })
 
-onDrag(lampSizer, ({scaledX}) => {
+onDrag(lampSizer, ({scaledX, scaledY}) => {
   const lampX = Number(lamp.getAttribute('cx'))
+  const lampY = Number(lamp.getAttribute('cy'))
   const dx = Math.abs(lampX - scaledX)
-  lamp.setAttribute('r', dx)
+  const dy = Math.abs(lampY - scaledY)
+  const dist = Math.sqrt(dx*dx + dy*dy)
+  lamp.setAttribute('r', dist)
+  lampSizer.setAttribute('r', dist + 20)
   update()
 })
