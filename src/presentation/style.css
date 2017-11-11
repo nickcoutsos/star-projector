@@ -41,9 +41,13 @@ section[data-state="title"] h2 {
 	cursor: ew-resize;
 }
 
-#light-clip circle { transition: r 200ms; }
-#light-clip [data-state="on"] { r: 2000; }
+/*#light-clip circle { transition: r 200ms; }
+#light-clip [data-state="on"] { r: 2000; }*/
 
 #wall:hover {
 	cursor: ew-resize;
+}
+
+#beam-slices polyline {
+	mix-blend-mode: overlay;
 }

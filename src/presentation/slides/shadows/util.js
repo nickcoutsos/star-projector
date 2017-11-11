@@ -21,7 +21,9 @@ export const onDrag = (element, listener) => {
     const svg = findParentNode(element, 'svg')
     const [viewBoxWidth, viewBoxHeight] = svg.getAttribute('viewBox').split(' ').slice(2).map(Number)
     const { width, height, top, left } = svg.getBoundingClientRect()
-    const { clientX, clientY } = event
+    const { clientX, clientY } = event.type === 'touchmove'
+      ? event.touches[0]
+      : event
 
     listener(Object.assign(event, {
       scaledX: (clientX - left) / width * viewBoxWidth,
@@ -32,17 +34,22 @@ export const onDrag = (element, listener) => {
   function attach () {
     element.classList.add('dragging')
     window.addEventListener('mousemove', move)
+    window.addEventListener('touchmove', move)
     window.addEventListener('mouseup', detach)
+    window.addEventListener('touchend', detach)
   }
 
   function detach () {
     setTimeout(() => {dragging = false})
     element.classList.remove('dragging')
     window.removeEventListener('mousemove', move)
+    window.removeEventListener('touchmove', move)
     window.removeEventListener('mouseup', detach)
+    window.removeEventListener('touchend', detach)
   }
 
   element.addEventListener('mousedown', attach)
+  element.addEventListener('touchstart', attach)
 }
 
 export const getTangentPoints = (center, radius, point) => {
@@ -77,4 +84,43 @@ export const projectThrough = (source, dest) => {
     x: source.x + dx * dist,
     y: source.y + dy * dist
   }
+}
+
+export const animateAttribute = (element, attribute, getValue, duration=100) => {
+  let direction = 1
+  let start_
+
+  function start (newDuration, newDirection) {
+    start_ = Date.now()
+    if (newDuration) {
+      duration = newDuration
+    }
+    if (newDirection) {
+      direction = newDirection
+    }
+
+    animate()
+  }
+
+  function stop () {
+    start_ = undefined
+  }
+
+  function animate () {
+    const now = Date.now()
+    const delta = now - start_
+    const f = delta / duration
+    const t = Math.max(0, Math.min(1, direction > 0 ? f : (1 - f)))
+
+    if ((t < 1 && direction > 0) || (t > 0 && direction < 0)) {
+      requestAnimationFrame(animate)
+    } else {
+      direction *= -1
+      stop()
+    }
+
+    element.setAttribute(attribute, getValue(t))
+  }
+
+  return start
 }

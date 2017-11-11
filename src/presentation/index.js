@@ -10,7 +10,9 @@ slides.forEach(slide => {
   slideDeck.appendChild(slide.content)
 })
 
-Reveal.initialize()
+Reveal.initialize({
+  touch: false
+})
 
 slides[0].activate && slides[0].activate()
 

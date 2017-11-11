@@ -1,6 +1,6 @@
 /** @jsx svgJSX */
 import { flatten, times } from 'lodash'
-import { onDrag, getTangentPoints, projectThrough } from './util'
+import { onDrag, getTangentPoints, projectThrough, animateAttribute } from './util'
 
 const element = ns => (tagname, attributes={}, ...children) => {
   const node = (ns
@@ -40,8 +40,8 @@ content.appendChild(
     <rect clip-path="url(#light-clip)" id="darkness" fill="lightslategrey" x="800" y="0" width="800" height="900" />
     <rect id="wall" fill="slategrey" stroke="slategrey" x="800" y="0" width="20" height="900" />
 
-    <g clip-path="url(#light-clip)" id="beam-slices" stroke="none" fill="rgba(255, 255, 180, .1)">
-      {times(12, n => <polyline afill={`hsla(${n/12 * 360}, 50%, 50%, 1)`} />)}
+    <g clip-path="url(#light-clip)" id="beam-slices" stroke="none" fill="rgba(255, 255, 200, .15)">
+      {times(12, () => <polyline />)}
     </g>
 
     <rect id="aperture" fill="lightgrey" x="800" y="400" width="20" height="100" />
@@ -81,9 +81,12 @@ onDrag(lamp, ({scaledX, scaledY}) => {
   update(cursor)
 })
 
+const lampToggle = animateAttribute(lampClip, 'r', t => Math.max(0, Math.min(t * t * 2000, 2000)), 50)
+
 lamp.addEventListener('click', () => {
   lamp.dataset.state = lamp.dataset.state === 'on' ? 'off' : 'on'
   lampClip.dataset.state = lampClip.dataset.state === 'on' ? 'off' : 'on'
+  lampToggle()
 })
 
 const update = point => {
