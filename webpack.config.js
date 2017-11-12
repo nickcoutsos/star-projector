@@ -88,7 +88,7 @@ module.exports = {
   // externals: {
   //   'three': 'THREE'
   // },
-  devtool: 'inline',
+  devtool: 'source',
   devServer: {
     contentBase: './src',
     historyApiFallback: true,
