@@ -1,9 +1,3 @@
-.title .slide-background.present {
-	background:
-		radial-gradient(circle at center, darkred 0, rgba(0, 0, 0, 0) 70%),
-		url(assets/hudf_300dpi.jpg);
-	background-size: cover;
-}
 
 section[data-state="title"] h1 {
 	font-family: Georgia;
