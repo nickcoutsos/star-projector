@@ -27,8 +27,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "webpack-dev-server --port=8080 --host=0.0.0.0",
     "build": "npm run clean && webpack --optimize-minimize && npm run copy-assets",
-    "clean": "rm -rf build/ && mkdir -p build/assets",
-    "copy-assets": "cp -r src/assets build/"
+    "clean": "rm -rf build/ && mkdir -p build/assets build/presentation",
+    "copy-assets": "cp -r src/assets build/ && cp -r src/presentation/assets build/presentation"
   },
   "author": "",
   "license": "ISC",
