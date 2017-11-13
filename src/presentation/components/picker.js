@@ -30,7 +30,7 @@ export default class Picker extends EventEmitter {
   onMouseMove (event) {
     const {lastHover} = this
     const { clientX, clientY } = event
-    const object = this.pick(clientX, clientY)
+    const { object } = this.pick(clientX, clientY) || {}
 
     if (lastHover && lastHover !== object) {
       this.emit('mouseoff', lastHover)
