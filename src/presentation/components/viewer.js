@@ -1,15 +1,15 @@
 import {
+  Object3D,
   PerspectiveCamera,
+  PointLight,
   Raycaster,
   Scene,
-  Vector2,
   Vector3,
   WebGLRenderer
 } from 'three'
 
 export default class Viewer {
   constructor () {
-    console.log('Viewer constructor')
     this.renderer = new WebGLRenderer({ antialias: true, alpha: true })
     this.camera = new PerspectiveCamera(75, 1, 0.1, 10)
     this.scene = new Scene()
@@ -22,7 +22,18 @@ export default class Viewer {
   initialize () {
     this.camera.position.set(0, 0, 2.5)
     this.camera.lookAt(new Vector3(0, 0, 0))
-    this.scene.add(this.camera)
+
+    const lamps = new Object3D().add(
+      new PointLight(),
+      new PointLight(),
+      new PointLight()
+    )
+
+    lamps.children[0].position.set(0, 4, 1)
+    lamps.children[1].position.set(-1, 0, 4)
+    lamps.children[2].position.set(4, 0, 1)
+
+    this.scene.add(this.camera, lamps)
   }
 
   mount (container) {
@@ -44,12 +55,15 @@ export default class Viewer {
       return
     }
 
-    delete slide.style.width
-    delete slide.style.height
-    container.removeAttribute('width');
-    container.removeAttribute('height')
-    const { width, height } = container.getBoundingClientRect()
-    console.log('resize', width, height)
+    slide.style.width = '75vw'
+    slide.style.height = '75vh'
+
+    // delete slide.style.width
+    // delete slide.style.height
+    // container.removeAttribute('width');
+    // container.removeAttribute('height')
+    const { width, height } = slide.getBoundingClientRect()
+    // console.log('resize', width, height)
 
     this.renderer.setSize(width, height);
     this.camera.aspect = width / height;
