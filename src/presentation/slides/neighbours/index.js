@@ -11,7 +11,6 @@ const geometry = new three.DodecahedronGeometry()
 const topology = new Topology(geometry)
 
 import * as elements from './elements'
-import * as materials from './materials'
 import * as highlightModes from './highlight-modes'
 
 const viewer = new Viewer()
@@ -20,15 +19,27 @@ const trackball = new Trackball(viewer)
 
 let highlightMode = null
 
+const style = obj => Object.keys(obj).map(key => `${key}: ${obj[key]}`).join('; ')
+
 export const content = (
-  <section>
+  <section style="text-align: left">
     <h3>Neighbourhoods</h3>
     <ul>
       <li class="fragment" data-highlight-mode="vertexEdges">Edges share vertices</li>
       <li class="fragment" data-highlight-mode="edgeEdges">Edges share other edges</li>
       <li class="fragment" data-highlight-mode="edgeFaces">Faces share edges</li>
     </ul>
-    <div id="renderer" style="position: absolute; top: 50%; left: 50%; transform: translateX(-50%);" />
+    <div
+      id="renderer"
+      style={style({
+        position: 'absolute',
+        top: '50%',
+        transform: 'translateY(-25%)',
+        right: 0,
+        width: '50vh',
+        height: '50vh'
+      })}
+    />
   </section>
 )
 
@@ -43,7 +54,7 @@ export const deactivate = () => {
   trackball.detach()
 }
 
-export const showFragment = ({ fragment }) => {
+export const fragment = ({ fragment }) => {
   highlightMode = fragment.dataset.highlightMode
 }
 

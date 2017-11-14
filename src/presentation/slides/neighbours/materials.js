@@ -1,5 +1,4 @@
-import { FrontSide, MeshStandardMaterial } from 'three'
-
+import { MeshStandardMaterial } from 'three'
 
 export const regular = new MeshStandardMaterial({
   name: 'regular',
