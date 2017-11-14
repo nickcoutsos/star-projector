@@ -76,9 +76,13 @@ const aperture = content.querySelector('#aperture')
 const wall = content.querySelector('#wall')
 
 
-const updateCircle = (element, point) => {
-  element.setAttribute('cx', point.x)
-  element.setAttribute('cy', point.y)
+const updateCircle = (element, circle) => {
+  element.setAttribute('cx', circle.x)
+  element.setAttribute('cy', circle.y)
+
+  if (circle.radius) {
+    element.setAttribute('r', circle.radius)
+  }
 }
 
 const updatePolyline = (element, points) => {
@@ -110,22 +114,30 @@ lamp.addEventListener('click', () => {
     clickOff.play()
   }
 
-  lamp.dataset.state = state.lamp.on ? 'on' : 'off'
-  lampClip.dataset.state = state.lamp.on ? 'on' : 'off'
   lampToggle()
+  update()
 })
 
 const update = () => {
   const {x, y, radius} = state.lamp
   const point = {x, y}
 
-  lamp.setAttribute('r', radius)
-  lampSizer.setAttribute('r', radius + 20)
+  lamp.dataset.state = state.lamp.on ? 'on' : 'off'
+  lampClip.dataset.state = state.lamp.on ? 'on' : 'off'
 
-  updateCircle(lamp, point)
-  updateCircle(lampSizer, point)
-  updateCircle(lampClip, point)
+  updateCircle(lamp, {x, y, radius})
+  updateCircle(lampSizer, {x, y, radius: radius + 20})
+  updateCircle(lampClip, {x, y})
   updateBeams(point)
+
+  aperture.setAttribute('y', viewBoxHeight / 2 - state.aperture.radius)
+  aperture.setAttribute('height', state.aperture.radius * 2)
+
+  const darkness = content.querySelector('#darkness')
+  aperture.setAttribute('x', state.wall.x)
+  wall.setAttribute('x', state.wall.x)
+  darkness.setAttribute('x', state.wall.x)
+  darkness.setAttribute('width', viewBoxWidth - state.wall.x)
 }
 
 const updateBeams = (point) => {
@@ -162,18 +174,11 @@ onDrag(aperture, ({ scaledY }) => {
   const dy = Math.abs(scaledY - mid) + 5
 
   state.aperture.radius = dy
-  aperture.setAttribute('y', mid - dy)
-  aperture.setAttribute('height', dy * 2)
   update()
 })
 
 onDrag(wall, ({ scaledX }) => {
   state.wall.x = scaledX
-  aperture.setAttribute('x', scaledX)
-  const darkness = content.querySelector('#darkness')
-  wall.setAttribute('x', scaledX)
-  darkness.setAttribute('x', scaledX)
-  darkness.setAttribute('width', 1600 - scaledX)
   update()
 })
 
