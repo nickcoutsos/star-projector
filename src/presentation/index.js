@@ -12,7 +12,9 @@ slides.forEach(slide => {
 })
 
 Reveal.initialize({
-  touch: false
+  touch: false,
+  minScale: 1,
+  maxScale: 1
 })
 
 slides[0].activate && slides[0].activate()
@@ -37,24 +39,26 @@ Reveal.addEventListener('slidechanged', ({ currentSlide, previousSlide }) => {
 
 Reveal.addEventListener('fragmentshown', ({ fragment }) => {
   const slide = activeSlide()
-  if (!slide || !slide.showFragment) {
+  if (!slide) {
     return
   }
 
   const fragments = flatten(slide.content.querySelectorAll('.fragment'))
   const index = fragments.findIndex(fragmentElement => fragmentElement === fragment)
 
-  slide.showFragment({ fragment, index })
+  slide.showFragment && slide.showFragment({ fragment, index })
+  slide.fragment && slide.fragment({ fragment, index })
 })
 
 Reveal.addEventListener('fragmenthidden', ({ fragment }) => {
   const slide = activeSlide()
-  if (!slide || !slide.hideFragment) {
+  if (!slide) {
     return
   }
 
   const fragments = flatten(slide.content.querySelectorAll('.fragment'))
   const index = fragments.findIndex(fragmentElement => fragmentElement === fragment)
 
-  slide.hideFragment({ fragment, index })
+  slide.hideFragment && slide.hideFragment({ fragment, index })
+  slide.fragment && index > 0 && slide.fragment({ index: index - 1, fragment: fragments[index - 1] })
 })

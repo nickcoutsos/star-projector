@@ -1,6 +1,8 @@
 import Topology from '../../../topology'
 import * as three from 'three'
 
+import { regular } from './materials'
+
 const geometry = new three.DodecahedronGeometry()
 const topology = new Topology(geometry, {})
 
@@ -9,12 +11,7 @@ export const elements = [
     ...topology.vertices.map(v => {
       const mesh = new three.Mesh(
         new three.IcosahedronGeometry(.08, 3),
-        new three.MeshStandardMaterial({
-          color: 'crimson',
-          metalness: 0.1,
-          roughness: 0.9,
-          flatShading: false
-        })
+        regular
       )
 
       mesh.position.copy(v)
@@ -27,12 +24,7 @@ export const elements = [
       const {start} = line
       const tube = new three.Mesh(
         new three.CylinderGeometry(0.05, 0.05, line.distance()),
-        new three.MeshStandardMaterial({
-          color: 'seagreen',
-          metalness: 0.1,
-          roughness: 0.9,
-          flatShading: false
-        })
+        regular
       )
 
       tube.position.y = line.distance() / 2
@@ -58,12 +50,7 @@ export const elements = [
       })
 
       geometry.computeVertexNormals()
-      const mesh = new three.Mesh(geometry, new three.MeshStandardMaterial({
-        color: 'steelblue',
-        metalness: 0.1,
-        roughness: 0.9,
-        flatShading: false
-      }))
+      const mesh = new three.Mesh(geometry, regular)
 
       mesh.userData.polygonId = index
       return mesh
