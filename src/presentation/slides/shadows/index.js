@@ -122,8 +122,9 @@ const update = () => {
   const {x, y, radius} = state.lamp
   const point = {x, y}
 
-  lamp.dataset.state = state.lamp.on ? 'on' : 'off'
-  lampClip.dataset.state = state.lamp.on ? 'on' : 'off'
+  content.querySelector('svg').dataset.state = state.lamp.on ? 'on' : 'off'
+  // lampClip.dataset.state = state.lamp.on ? 'on' : 'off'
+  // lampSizer.dataset.state = state.lamp.on ? 'on' : 'off'
 
   updateCircle(lamp, {x, y, radius})
   updateCircle(lampSizer, {x, y, radius: radius + 20})

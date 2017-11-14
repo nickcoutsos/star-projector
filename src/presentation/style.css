@@ -19,9 +19,6 @@ section[data-state="title"] h2 {
 	fill: rgb(255, 250, 220);
 	strone: none;
 }
-#lamp[data-state="off"] {
-	fill: lightgrey;
-}
 
 #aperture:hover {
 	cursor: row-resize;
@@ -34,6 +31,19 @@ section[data-state="title"] h2 {
 }
 #lamp-sizer:hover {
 	cursor: ew-resize;
+}
+
+[data-state="off"] #lamp {
+	fill: darkgrey;
+	opacity: 0.25;
+}
+[data-state="off"] #lamp-sizer {
+	fill: grey;
+	opacity: 0.25;
+}
+[data-state="off"] #aperture {
+	fill: darkgrey;
+	opacity: 0.25;
 }
 
 #wall:hover {
