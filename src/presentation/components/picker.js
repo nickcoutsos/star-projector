@@ -9,6 +9,7 @@ export default class Picker extends EventEmitter {
 
     this.lastHover = null
     this.onMouseMove = this.onMouseMove.bind(this)
+    this.onClick = this.onClick.bind(this)
   }
 
   get element () {
@@ -21,10 +22,12 @@ export default class Picker extends EventEmitter {
 
   attach () {
     this.element.addEventListener('mousemove', this.onMouseMove)
+    this.element.addEventListener('click', this.onClick)
   }
 
   detach () {
     this.element.removeEventListener('mousemove', this.onMouseMove)
+    this.element.removeEventListener('click', this.onClick)
   }
 
   onMouseMove (event) {
@@ -41,6 +44,15 @@ export default class Picker extends EventEmitter {
     }
 
     this.lastHover = object
+  }
+
+  onClick (event) {
+    const { clientX, clientY } = event
+    const { object } = this.pick(clientX, clientY) || {}
+
+    if (object) {
+      this.emit('click', object)
+    }
   }
 
   pick (x, y) {
