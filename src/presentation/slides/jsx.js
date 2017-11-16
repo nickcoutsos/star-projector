@@ -18,6 +18,17 @@ export const element = ns => (tagname, attributes={}, ...children) => {
   return node
 }
 
+export const threex = (constructor, attributes={}, ...children) => {
+  const node = Object.assign(new constructor(), attributes)
+  const flattened = flatten(children)
+
+  if (flattened.length) {
+    node.add(...flattened)
+  }
+
+  return node
+}
+
 const jsx = element()
 const svg = element('http://www.w3.org/2000/svg')
 
