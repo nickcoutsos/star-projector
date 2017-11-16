@@ -17,8 +17,6 @@ Reveal.initialize({
   maxScale: 1
 })
 
-slides[0].activate && slides[0].activate()
-
 const activeSlide = () => {
   const node = document.querySelector('.slides .present')
   return slides.find(slide => slide.content === node)
@@ -61,4 +59,8 @@ Reveal.addEventListener('fragmenthidden', ({ fragment }) => {
 
   slide.hideFragment && slide.hideFragment({ fragment, index })
   slide.fragment && index > 0 && slide.fragment({ index: index - 1, fragment: fragments[index - 1] })
+})
+
+Reveal.addEventListener('ready', () => {
+  slides[0].activate && slides[0].activate()
 })
