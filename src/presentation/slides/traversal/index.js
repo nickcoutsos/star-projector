@@ -7,7 +7,7 @@ import Viewer from '../../components/viewer'
 import Picker from '../../components/picker'
 import Trackball from '../../components/trackball'
 
-const geometry = new three.DodecahedronGeometry()
+const geometry = new three.IcosahedronGeometry(1, 1)
 const topology = new Topology(geometry)
 
 import * as elements from './elements'
