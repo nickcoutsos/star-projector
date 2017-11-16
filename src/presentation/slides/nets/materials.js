@@ -5,8 +5,7 @@ export const regular = new MeshStandardMaterial({
   color: 'lightslategray',
   metalness: 0.1,
   roughness: 0.9,
-  flatShading: false,
-  side: DoubleSide
+  flatShading: false
 })
 
 export const active = new MeshStandardMaterial({

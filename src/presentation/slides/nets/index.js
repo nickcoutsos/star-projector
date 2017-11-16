@@ -5,7 +5,6 @@ import { jsx } from '../jsx'
 import Topology from '../../../topology'
 import Viewer from '../../components/viewer'
 import Picker from '../../components/picker'
-import Trackball from '../../components/trackball'
 import * as elements from './elements'
 import { animate, easeOutBounce } from './util'
 
@@ -15,7 +14,6 @@ const topology = new Topology(geometry)
 
 const viewer = new Viewer()
 const picker = new Picker(viewer)
-const trackball = new Trackball(viewer)
 
 const style = obj => Object.keys(obj).map(key => `${key}: ${obj[key]}`).join('; ')
 
@@ -25,7 +23,11 @@ export const content = (
     <ul>
       <li class="fragment">Et voíla</li>
     </ul>
-    <div
+  </section>
+)
+
+const renderContainer = (
+  <div
       id="renderer"
       style={style({
         position: 'absolute',
@@ -35,19 +37,12 @@ export const content = (
         height: '100vh'
       })}
     />
-  </section>
 )
 
 const object = elements.getObject(topology)
 const wrapper = new three.Object3D().add(object)
-viewer.mount(content.querySelector('#renderer'))
+viewer.mount(renderContainer)
 viewer.camera.position.z = 2
-viewer.renderFrame()
-
-trackball.on('rotate', rotation => {
-  wrapper.applyMatrix(rotation)
-  viewer.renderFrame()
-})
 
 const spot = new three.SpotLight(0)
 spot.position.set(-3, 4, 1)
@@ -73,7 +68,7 @@ plane.receiveShadow = true
 viewer.scene.add(wrapper, spot, plane)
 viewer.renderer.shadowMap.enabled = true
 viewer.renderer.shadowMap.type = three.PCFSoftShadowMap
-viewer.camera.position.set(0, 1, 5)
+viewer.camera.position.set(-2, -1, 6)
 
 const isPivot = obj => obj.userData.isPivot
 
@@ -88,12 +83,18 @@ const makePivotTree = children => {
   )
 }
 
+let rotate_
+const rotate = () => {
+  rotate_ = requestAnimationFrame(rotate)
+  wrapper.rotation.y += .008
+  viewer.renderFrame()
+}
 const pivotTree = makePivotTree(object.children).filter(arr => arr.length > 0)
 
 const unfold = animate(t => {
   pivotTree[pivotStep].forEach(node => node.userData.animate(t))
   viewer.renderFrame()
-}, 1000, easeOutBounce)
+}, 1300, easeOutBounce)
 
 const repeat = () => {
   if (pivotStep < pivotTree.length - 1) {
@@ -102,10 +103,15 @@ const repeat = () => {
   }
 }
 
-viewer.renderFrame()
-
 export const showFragment = () => {
-  unfold(repeat)
+  rotate_ && cancelAnimationFrame(rotate_)
+  const originalRotation = wrapper.rotation.y % (2 * Math.PI)
+  animate(t => {
+    wrapper.rotation.y = originalRotation * (1 - t)
+    viewer.renderFrame()
+  }, 700)(() => {
+    unfold(repeat)
+  })
 }
 
 export const hideFragment = () => {
@@ -117,16 +123,19 @@ export const hideFragment = () => {
       }
     })
     viewer.renderFrame()
-  }, 400)()
+  }, 400)(() => {
+    rotate()
+  })
 }
 
 export const activate = () => {
+  document.body.appendChild(renderContainer)
   viewer.onResize()
   picker.attach()
-  trackball.attach()
+  rotate()
 }
 
 export const deactivate = () => {
+  document.body.removeChild(renderContainer)
   picker.detach()
-  trackball.detach()
 }

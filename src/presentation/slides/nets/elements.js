@@ -18,7 +18,18 @@ const polyFace = polygon => (
             b={polygon.points.indexOf(b)}
             c={polygon.points.indexOf(c)}
           />
-        ))}
+        ))
+        // this sucks but DoubleSide doesn't affect shadows so we need to
+        // duplicate each face with the opposite vertex order to get the
+        // opposite face normal
+        .concat(polygon.triangles.map(({a, b, c}, i) => (
+          <Face3
+            key={i}
+            a={polygon.points.indexOf(c)}
+            b={polygon.points.indexOf(b)}
+            c={polygon.points.indexOf(a)}
+          />
+          )))}
       />
     }
   />
