@@ -17,6 +17,7 @@ export function constructHierarchicalMesh(topology) {
 
     pivotNode.position.add(node.edge.point);
     if (parent) {
+      pivotNode.userData.isPivot = true
       pivotNode.position.sub(parent.edge.point);
       pivotNode.rotateOnAxis(pivotAxis, topology.dihedral);
       pivotNode.userData.animate = t => {
