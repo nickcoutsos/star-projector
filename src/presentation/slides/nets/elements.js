@@ -96,7 +96,7 @@ export const getObject = topology => {
     polyObj.geometry.computeFaceNormals()
 
     obj.add(polyObj,
-      fold && polyEdge(fold, active) || null,
+      ...[fold && polyEdge(fold, active)].filter(v => !!v),
       ...cuts.map(edge => polyEdge(edge, neighbour))
     )
   })
