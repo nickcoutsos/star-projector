@@ -10,11 +10,11 @@ export default class Trackball extends EventEmitter {
   }
 
   attach () {
-    window.addEventListener('mousewheel', this.onRotate)
+    window.addEventListener('wheel', this.onRotate)
   }
 
   detach () {
-    window.removeEventListener('mousewheel', this.onRotate)
+    window.removeEventListener('wheel', this.onRotate)
   }
 
   onRotate ({ deltaX, deltaY }, speed=1) {
