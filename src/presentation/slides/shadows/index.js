@@ -20,8 +20,8 @@ const state = {
 
 const viewBoxWidth = 1600
 const viewBoxHeight = 900
-const clickOn = new Audio('assets/click-on.wav')
-const clickOff = new Audio('assets/click-off.wav')
+const clickOn = new Audio('presentation/assets/click-on.wav')
+const clickOff = new Audio('presentation/assets/click-off.wav')
 
 export const deactivate = () => {
   if (state.lamp.on) {
