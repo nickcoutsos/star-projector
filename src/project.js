@@ -129,10 +129,31 @@ const build = (topology, projectedStars, projectedAsterisms) => {
     }
   })
 
-  // Render flattened SVG
-  drawSVG(polygons, projectedStars, projectedAsterisms)
+  generateRenderButton(() => {
+    // Render flattened SVG
+    drawSVG(polygons, projectedStars, projectedAsterisms)
+  })
 
   return hierarchicalMesh
+}
+
+const generateRenderButton = action => {
+  const existing = document.querySelector('#draw-svg')
+  if (existing) {
+    existing.parentNode.removeChild(existing)
+  }
+
+  const button = document.createElement('button')
+  button.addEventListener('click', action)
+  button.textContent = 'Draw SVG'
+  button.style.position = 'absolute'
+  button.style.width = '90px'
+  button.style.margin = '2px'
+  button.style.top = '20px'
+  button.style.right = '20px'
+
+
+  document.querySelector('#preview').appendChild(button)
 }
 
 const starPointsObject = points => o(
