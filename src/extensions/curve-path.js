@@ -27,8 +27,7 @@ CurvePath.prototype.applyMatrix4 = function(matrix) {
 }
 
 CurvePath.prototype.getLineSegments = function(divisions) {
-  return this
-    .createPointsGeometry(divisions).vertices
+  return this.getSpacedPoints(divisions)
     .reduce((segments, p, i, array) => {
       if (i < array.length - 1) {
         segments.push(p, array[i + 1])
