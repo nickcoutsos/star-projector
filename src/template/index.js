@@ -61,21 +61,34 @@ export function drawSVG(polygons, stars, asterisms) {
 
   const transformations = polygons.map(({ toViewbox }) => toViewbox)
   const tabMaker = getTabMaker(transformations, tabScale, polygons[0].polygon)
-  const tabs = [].concat(...polygons.map(({cuts}) => cuts))
-    .reduce((tabs, cut) => {
-      const existing = tabs.find(edge => edge.id === cut.id)
-      if (!existing) {
-        tabs.push(tabMaker(cut))
+  const tabs = [].concat(...polygons.map(({polygon}) => polygon.edges))
+    .reduce((tabs, edge) => {
+      const existing = tabs.find(sibling => sibling.id === edge.id)
+      const polygon = polygons[edge.poly.index]
+      const sibling = polygons[edge.shared.poly.index]
+      const edgeIsFold = polygon.fold && polygon.fold.id === edge.id
+      const edgeIsSiblingFold = sibling.fold && sibling.fold.id === edge.id
+
+      if (!existing && !edgeIsFold && !edgeIsSiblingFold) {
+        tabs.push(tabMaker(edge))
       }
 
       return tabs
     }, [])
 
-  const { cuts, folds } = polygons.reduce((results, { cuts, fold }, polygonId) => {
+  const { cuts, folds } = polygons.reduce((results, { polygon, cuts, fold }) => {
+    const polygonId = polygon.index
     const transform = transformations[polygonId]
     const mapEdge = edge => edge.line.clone().applyMatrix4(transform).toPoints()
 
     fold && results.folds.push(mapEdge(fold))
+
+    polygon.edges.forEach(edge => {
+      if (!fold && tabs.find(sibling => sibling.id === edge.id)) {
+        results.folds.push(mapEdge(edge))
+      }
+    })
+
     cuts.forEach(cut => {
       // render edges with tabs defined as folds instead of cuts
       const container = tabs.find(tab => tab.id === cut.id && tab.polygonId === polygonId)
