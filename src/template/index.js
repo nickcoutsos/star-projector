@@ -13,53 +13,18 @@ const dodecahedronInscribedRadiusRatio = (
   (2 * Math.sqrt(3 - PHI))
 )
 
-export function drawSVG(polygons, stars, asterisms) {
-  const edgeHull = getUnfoldedHull(polygons)
-  const aaRotation = getOrientationMatrix(edgeHull)
-  const boundingBox = new Box2().setFromPoints(
-    edgeHull.map(p => p.applyMatrix4(aaRotation))
-  )
-
-  // TODO: refactor this section into a function that allows for scaling based
-  // on desired radius or edge length or maximum unfolded dimensions
-  const offset = boundingBox.min.clone().negate()
-  // const scale = 100 / boundingBox.getSize().x
-  // const scale = 12.584086145276297
-  const edgeLength = polygons[0].polygon.edges[0].line.distance()
-  const tabHeight = edgeLength * tabScale
-  const padding = tabHeight * 1.25
-
-  const paddedBoundingBox = boundingBox.getSize().add(
-    new Vector3(padding, padding, 0).multiplyScalar(2)
-  )
-
-  const availableWidth = 71 - padding*2
-  const availableScale = availableWidth / paddedBoundingBox.x
-  const availableHeight = availableScale * paddedBoundingBox.y
-  const availableEdgeLength = edgeLength * availableScale
-  const availableRadius = availableEdgeLength * dodecahedronInscribedRadiusRatio
-
-  const viewBoundingBox = paddedBoundingBox.multiplyScalar(availableScale)
-
-  console.log({
-    availableWidth,
-    availableHeight,
-    availableScale,
-    availableEdgeLength,
-    availableRadius
-  })
-
-  const viewbox = [0, 0, viewBoundingBox.x, viewBoundingBox.y]
-  const viewboxTransform = new Matrix4()
-    .multiply(new Matrix4().makeScale(availableScale, availableScale, 1))
-    .multiply(new Matrix4().makeTranslation(offset.x + padding, offset.y + padding, 0))
-    .multiply(aaRotation)
+export function drawSVG(polygons, stars, asterisms, netOptions) {
+  const connected = !netOptions.disconnectPolygons
 
   polygons.forEach(polygon => {
-    polygon.toViewbox = polygon.matrix.clone().premultiply(viewboxTransform)
+    polygon.transform = polygon.matrix.clone()//.premultiply(viewboxTransform)
+    if (!connected && polygon.fold) {
+      polygon.cuts.push(polygon.fold)
+      polygon.fold = null
+    }
   })
 
-  const transformations = polygons.map(({ toViewbox }) => toViewbox)
+  const transformations = polygons.map(({ transform }) => transform)
   const tabMaker = getTabMaker(transformations, tabScale, polygons[0].polygon)
   const tabs = [].concat(...polygons.map(({polygon}) => polygon.edges))
     .reduce((tabs, edge) => {
@@ -76,16 +41,77 @@ export function drawSVG(polygons, stars, asterisms) {
       return tabs
     }, [])
 
-  const { cuts, folds } = polygons.reduce((results, { polygon, cuts, fold }) => {
+  const starPaths = getStarPaths(polygons, tabs, stars)
+  const asterismQuads = getAsterismQuads(polygons, tabs, asterisms)
+
+  connected
+    ? render(polygons, tabs, starPaths, asterismQuads)
+    : polygons.forEach(polygon => render([polygon], tabs, starPaths, asterismQuads))
+}
+
+const render = (polygons, tabs, starPaths, asterismQuads) => {
+  const edgeHull = getUnfoldedHull(polygons)
+  const aaRotation = getOrientationMatrix(edgeHull)
+  const boundingBox = new Box2().setFromPoints(
+    edgeHull.map(p => p.applyMatrix4(aaRotation))
+  )
+
+  // TODO: refactor this section into a function that allows for scaling based
+  // on desired radius or edge length or maximum unfolded dimensions
+  const offset = boundingBox.min.clone().negate()
+
+  // const scale = 100 / boundingBox.getSize().x
+  // const scale = 12.584086145276297
+  const edgeLength = polygons[0].polygon.edges[0].line.distance()
+  const tabHeight = edgeLength * tabScale
+  const padding = tabHeight * 1.25
+
+  const paddedBoundingBox = boundingBox.getSize().add(
+    new Vector3(padding, padding, 0).multiplyScalar(2)
+  )
+
+  const availableWidth = 71 - padding*2
+  const availableScale = availableWidth / paddedBoundingBox.x
+  // const availableEdgeLength = edgeLength * availableScale
+  // const availableHeight = availableScale * paddedBoundingBox.y
+  // const availableRadius = availableEdgeLength * dodecahedronInscribedRadiusRatio
+
+  // console.log({
+  //   availableWidth,
+  //   availableHeight,
+  //   availableScale,
+  //   availableEdgeLength,
+  //   availableRadius
+  // })
+
+  const viewBoundingBox = paddedBoundingBox.multiplyScalar(availableScale)
+  const viewbox = [0, 0, viewBoundingBox.x, viewBoundingBox.y]
+
+  const viewboxTransform = new Matrix4()
+    .multiply(new Matrix4().makeScale(availableScale, availableScale, 1))
+    .multiply(new Matrix4().makeTranslation(offset.x + padding, offset.y + padding, 0))
+    .multiply(aaRotation)
+
+  polygons.forEach(({ transform }) => transform.premultiply(viewboxTransform))
+
+  const { cuts, folds } = polygons.reduce((results, { polygon, cuts, fold, transform }) => {
     const polygonId = polygon.index
-    const transform = transformations[polygonId]
     const mapEdge = edge => edge.line.clone().applyMatrix4(transform).toPoints()
 
-    fold && results.folds.push(mapEdge(fold))
+    if (fold) {
+      const edge = mapEdge(fold)
+      const adjacentPoly = polygons[fold.poly.index]
+
+      if (adjacentPoly) {
+        results.folds.push(edge)
+      } else {
+        results.cuts.push(edge)
+      }
+    }
 
     polygon.edges.forEach(edge => {
-      if (!fold && tabs.find(sibling => sibling.id === edge.id)) {
-        results.folds.push(mapEdge(edge))
+      if (!polygons[edge.shared.poly.index]) {
+        cuts.push(edge)
       }
     })
 
@@ -101,11 +127,125 @@ export function drawSVG(polygons, stars, asterisms) {
     return results
   }, { cuts: [], folds: [] })
 
-  const starPaths = stars.reduce((results, { paths }) => {
+  const starPathsByPolygon = groupBy(starPaths, 'polygonId')
+  const asterismLinesByPolygon = groupBy(asterismQuads, 'polygonId')
+  const tabsByPolygon = groupBy(tabs, 'polygonId')
+
+  polygons.forEach(({ polygon }) => {
+    const paths = starPathsByPolygon[polygon.index] || []
+    const lines = asterismLinesByPolygon[polygon.index] || []
+    const tabs = tabsByPolygon[polygon.index] || []
+
+    paths.forEach(path => path.applyMatrix4(viewboxTransform))
+    lines.forEach(line => line.applyMatrix4(viewboxTransform))
+    tabs.forEach(tab => tab.quad.forEach(point => point.applyMatrix4(viewboxTransform)))
+  })
+
+  const stroke = { 'stroke-width': '0.01pt', fill: 'none' }
+  const strokeRed = Object.assign({}, stroke, { stroke: 'red' })
+  const strokeBlue = Object.assign({}, stroke, { stroke: 'blue' })
+
+  const container = element('svg', {
+    id: 'output',
+    preserveAspectRatio: 'xMinYMin',
+    viewBox: viewbox.join(' '),
+    width: '100%',
+    // width: `${viewBoundingBox.x}cm`,
+    height: `${viewBoundingBox.y}cm`
+  }, [
+    element('g', {id: 'calibration', ...strokeRed}, [element('rect', { x: 0, y: 0, width: 2.54, height: 2.54 })]),
+    element('g', {id: 'cuts', ...strokeRed}, cuts.map(cut => (
+      element('path', { d: directives.line(cut) })
+    ))),
+    element('g', {id: 'folds', ...strokeBlue}, folds.map(fold => (
+      element('path', { d: directives.line(fold) })
+    ))),
+    element('g', {id: 'stars', ...strokeRed}, polygons.map(({ polygon }) => (
+      element('g', {
+        id: `polygon-${polygon.index}-stars`
+      }, starPathsByPolygon[polygon.index].map(path => (
+        element('path', {
+          d: directives.path(path)
+        })
+      ))
+    )))),
+    element('g', {id: 'constellations', ...strokeRed}, polygons.map(({ polygon }) => (
+      element('g', {
+        id: `polygon-${polygon.index}-asterisms`
+      }, asterismLinesByPolygon[polygon.index].map(line => (
+        element('path', { d: directives.line(line.toPoints()) })
+      )))
+    ))),
+    element('g', {id: 'tabs', ...strokeRed}, polygons.map(({ polygon }) => (
+      element('g', {
+        id: `polygon-${polygon.index}-tabs`
+      }, (tabsByPolygon[polygon.index] || []).map(({ quad }) => (
+        element('path', { d: directives.poly(quad) })
+      )))
+    ))),
+    element('g', {
+      id: 'polygon-labels',
+      fill: 'none',
+      stroke: 'magenta',
+      'stroke-width': '.02pt',
+      'font-family': 'Garamond',
+      'font-size': '1pt',
+      'text-anchor': 'middle'
+    }, polygons.map(({ polygon, transform }) => {
+      const center = polygon.center.clone().applyMatrix4(transform)
+      return element('text', {
+        x: center.x,
+        y: center.y,
+        dy: '.25pt'
+      }, [polygon.index])
+    }))
+  ])
+
+  const actions = document.createElement('div')
+  actions.style.position = 'fixed'
+  actions.style.top = 0
+  actions.style.right = 0
+  actions.style.padding = '20px'
+
+  const blobUrl = URL.createObjectURL(new Blob(
+    [svgHeader + '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"' + container.outerHTML.slice(4)],
+    { type: 'application/octet-stream' }
+  ))
+
+  const saveButton = document.createElement('button')
+  saveButton.style.width = '90px'
+  saveButton.style.margin = '2px'
+  saveButton.textContent = 'Save'
+
+  const saveLink = document.createElement('a')
+  saveLink.style.display = 'block'
+  saveLink.href = blobUrl
+  saveLink.download = 'star-projector-net.svg'
+  saveLink.appendChild(saveButton)
+
+  const close = document.createElement('button')
+  close.style.display = 'block'
+  close.style.width = '90px'
+  close.style.margin = '2px'
+  close.textContent = 'Close'
+  close.addEventListener('click', () => {
+    document.body.removeChild(actions)
+    document.body.removeChild(container)
+    URL.revokeObjectURL(blobUrl)
+  })
+
+  document.body.appendChild(container)
+  document.body.appendChild(actions)
+  actions.appendChild(saveLink)
+  actions.appendChild(close)
+}
+
+const getStarPaths = (polygons, tabs, stars) => (
+  stars.reduce((results, { paths }) => {
     paths.forEach(path => {
       const { polygonId } = path
       const { polygon } = polygons[polygonId]
-      const transform = transformations[polygonId]
+      const transform = polygons[polygonId].transform
       const transformed = path.clone().applyMatrix4(transform)
 
       results.push(Object.assign(
@@ -215,16 +355,18 @@ export function drawSVG(polygons, stars, asterisms) {
 
     return results
   }, [])
+)
 
-  const asterismQuads = asterisms.reduce((results, { polygonId, quad }) => {
+const getAsterismQuads = (polygons, tabs, asterisms) => (
+  asterisms.reduce((results, { polygonId, quad }) => {
     const { polygon } = polygons[polygonId]
-    const transform = transformations[polygonId]
+    const transform = polygons[polygonId].transform
     const mapped = quad.map(p => p.clone().applyMatrix4(transform))
     const mappedLines = [
-      new Line3(mapped[0], mapped[1]),
-      new Line3(mapped[2], mapped[3]),
-      new Line3(mapped[4], mapped[5]),
-      new Line3(mapped[6], mapped[7])
+      Object.assign(new Line3(mapped[0], mapped[1]), { polygonId }),
+      Object.assign(new Line3(mapped[2], mapped[3]), { polygonId }),
+      Object.assign(new Line3(mapped[4], mapped[5]), { polygonId }),
+      Object.assign(new Line3(mapped[6], mapped[7]), { polygonId })
     ]
 
     const result = mappedLines
@@ -234,6 +376,7 @@ export function drawSVG(polygons, stars, asterisms) {
     ))
 
     potentialOverlaps.forEach(tab => {
+      const { polygonId } = tab
       const overlap = mapped.some(point => (
         tab.poly.triangles.some(triangle => triangle.containsPoint(point))
       ))
@@ -250,7 +393,12 @@ export function drawSVG(polygons, stars, asterisms) {
           return
         } else if (insidePoints.length === 2) {
           // the whole line is inside the tab, just copy it
-          result.push(edge.clone().applyMatrix4(tab.toTab))
+          result.push(
+            Object.assign(
+              edge.clone().applyMatrix4(tab.toTab),
+              { polygonId }
+            )
+          )
           return
         }
 
@@ -258,6 +406,10 @@ export function drawSVG(polygons, stars, asterisms) {
         const intersectionPoints = tab.overlapEdges
           .map(boundary => boundary.intersectLine(edge))
           .filter(point => !!point)
+
+        if (intersectionPoints.length === 0) {
+          return
+        }
 
         if (intersectionPoints.length > 1) {
           intersectionPoints.sort((a, b) => (
@@ -267,109 +419,15 @@ export function drawSVG(polygons, stars, asterisms) {
         }
 
         result.push(
-          new Line3(insidePoint, intersectionPoints[0])
-            .clone().applyMatrix4(tab.toTab)
+          Object.assign(
+            new Line3(insidePoint, intersectionPoints[0])
+              .clone().applyMatrix4(tab.toTab),
+            { polygonId }
+          )
         )
       })
     })
 
     return [...results, ...result]
   }, [])
-
-  const starPathsByPolygon = groupBy(starPaths, 'polygonId')
-  // const asterismQuadsByPolygon = groupBy(asterismQuads, 'polygonId')
-
-  const stroke = { 'stroke-width': '0.01pt', fill: 'none' }
-  const strokeRed = Object.assign({}, stroke, { stroke: 'red' })
-  const strokeBlue = Object.assign({}, stroke, { stroke: 'blue' })
-
-  const container = element('svg', {
-    id: 'output',
-    preserveAspectRatio: 'xMinYMin',
-    viewBox: viewbox.join(' '),
-    width: `${viewBoundingBox.x}cm`,
-    height: `${viewBoundingBox.y}cm`
-  }, [
-    element('g', strokeRed, [element('rect', { x: 0, y: 0, width: 2.54, height: 2.54 })]),
-    element('g', strokeRed, cuts.map(cut => (
-      element('path', { d: directives.line(cut) })
-    ))),
-    element('g', strokeBlue, folds.map(fold => (
-      element('path', { d: directives.line(fold) })
-    ))),
-    // element('g', strokeRed,
-    //   starPaths.map(path => element('path', { d: directives.path(path) }))
-    // ),
-    element('g', Object.assign({
-      id: 'stars'
-    }, strokeRed), polygons.map(({ polygon }) => (
-      element('g', {
-        id: `polygon-${polygon.index}`
-      }, starPathsByPolygon[polygon.index].map(path => (
-        element('path', {
-          d: directives.path(path)
-        })
-      ))
-    )))),
-    element('g', strokeRed, asterismQuads.map(edge => (
-      element('path', { d: directives.line(edge.toPoints()) })
-    ))),
-    element('g', strokeRed, tabs.map(({ quad }) => (
-      element('path', { d: directives.poly(quad) })
-    ))),
-    element('g', {
-      id: 'polygon-labels',
-      fill: 'none',
-      stroke: 'magenta',
-      'stroke-width': '.02pt',
-      'font-family': 'Garamond',
-      'font-size': '1pt',
-      'text-anchor': 'middle'
-    }, polygons.map(({ polygon, toViewbox }, i) => {
-      const center = polygon.center.clone().applyMatrix4(toViewbox)
-      return element('text', {
-        x: center.x,
-        y: center.y,
-        dy: '.25pt'
-      }, [i])
-    }))
-  ])
-
-  const actions = document.createElement('div')
-  actions.style.position = 'fixed'
-  actions.style.top = 0
-  actions.style.right = 0
-  actions.style.padding = '20px'
-
-  const blobUrl = URL.createObjectURL(new Blob(
-    [svgHeader + '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"' + container.outerHTML.slice(4)],
-    { type: 'application/octet-stream' }
-  ))
-
-  const saveButton = document.createElement('button')
-  saveButton.style.width = '90px'
-  saveButton.style.margin = '2px'
-  saveButton.textContent = 'Save'
-
-  const saveLink = document.createElement('a')
-  saveLink.style.display = 'block'
-  saveLink.href = blobUrl
-  saveLink.download = 'star-projector-net.svg'
-  saveLink.appendChild(saveButton)
-
-  const close = document.createElement('button')
-  close.style.display = 'block'
-  close.style.width = '90px'
-  close.style.margin = '2px'
-  close.textContent = 'Close'
-  close.addEventListener('click', () => {
-    document.body.removeChild(actions)
-    document.body.removeChild(container)
-    URL.revokeObjectURL(blobUrl)
-  })
-
-  document.body.appendChild(container)
-  document.body.appendChild(actions)
-  actions.appendChild(saveLink)
-  actions.appendChild(close)
-}
+)
