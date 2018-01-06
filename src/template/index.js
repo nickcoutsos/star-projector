@@ -127,6 +127,20 @@ const render = (polygons, selectedPolygons, tabs, starPaths, asterismQuads, netO
   const strokeRed = Object.assign({}, stroke, { stroke: 'red' })
   const strokeBlue = Object.assign({}, stroke, { stroke: 'blue' })
 
+  const round = n => Math.round(n * 100) / 100
+  const description = element('g', {id: 'description'}, [
+    element('text', {
+      fill: 'rgba(0, 0, 0, 0.25)',
+      'font-size': '.2pt',
+      'font-style': 'italic',
+      y: viewBoundingBox.y
+    }, [
+      element('tspan', {x: .25, dy: '-1em'}, [`Polygons: ${selectedPolygons.map(({ polygon }) => polygon.index).join(', ')}`]),
+      element('tspan', {x: .25, dy: '-1.2em'}, [`Edge Length: ${round(edgeLength * scale)}cm`]),
+      element('tspan', {x: .25, dy: '-1.2em'}, [`Dimensions: ${round(viewBoundingBox.x)}cm x ${round(viewBoundingBox.y)}cm`])
+    ])
+  ])
+
   const container = element('svg', {
     id: 'output',
     preserveAspectRatio: 'xMinYMin',
@@ -134,7 +148,7 @@ const render = (polygons, selectedPolygons, tabs, starPaths, asterismQuads, netO
     width: `${viewBoundingBox.x}cm`,
     height: `${viewBoundingBox.y}cm`
   }, [
-    element('g', {id: 'calibration', ...strokeRed}, [element('rect', { x: 0, y: 0, width: 2.54, height: 2.54 })]),
+    // element('g', {id: 'calibration', ...strokeRed}, [element('rect', { x: 0, y: 0, width: 2.54, height: 2.54 })]),
     element('g', {id: 'cuts', ...strokeRed}, cuts.map(cut => (
       element('path', { d: directives.line(cut) })
     ))),
@@ -199,9 +213,13 @@ const render = (polygons, selectedPolygons, tabs, starPaths, asterismQuads, netO
   saveButton.textContent = 'Save'
 
   const saveLink = document.createElement('a')
+  const key = polygons.length > selectedPolygons.Length
+    ? `polygons-${selectedPolygons.map(({ polygon }) => polygon.index).join('-')}`
+    : 'full'
+
   saveLink.style.display = 'block'
   saveLink.href = blobUrl
-  saveLink.download = 'star-projector-net.svg'
+  saveLink.download = `star-projector-net-${key}.svg`
   saveLink.appendChild(saveButton)
 
   const close = document.createElement('button')
@@ -215,6 +233,7 @@ const render = (polygons, selectedPolygons, tabs, starPaths, asterismQuads, netO
     URL.revokeObjectURL(blobUrl)
   })
 
+  container.appendChild(description)
   document.body.appendChild(container)
   document.body.appendChild(actions)
   actions.appendChild(saveLink)
