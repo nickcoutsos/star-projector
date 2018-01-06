@@ -16,7 +16,7 @@ function o(constructor, props, children=[]) {
   return node;
 }
 
-export default function project(polyhedron, starQuery, asterismQuery) {
+export default function project(polyhedron, starQuery, asterismQuery, netOptions) {
   const topology = new Topology(polyhedron)
   return getProjectedStars(
     topology,
@@ -26,12 +26,13 @@ export default function project(polyhedron, starQuery, asterismQuery) {
     build(
       topology,
       stars,
-      asterisms
+      asterisms,
+      netOptions
     )
   ))
 }
 
-const build = (topology, projectedStars, projectedAsterisms) => {
+const build = (topology, projectedStars, projectedAsterisms, netOptions) => {
   let hierarchicalMesh = constructHierarchicalMesh(topology);
   let objectByPolygon = {};
 
@@ -131,7 +132,7 @@ const build = (topology, projectedStars, projectedAsterisms) => {
 
   generateRenderButton(() => {
     // Render flattened SVG
-    drawSVG(polygons, projectedStars, projectedAsterisms)
+    drawSVG(polygons, projectedStars, projectedAsterisms, netOptions)
   })
 
   return hierarchicalMesh

@@ -36,6 +36,9 @@ new Vue({
       selectedAsterisms: []
     },
     connectedStars: [],
+    netOptions: {
+      disconnectPolygons: false
+    },
     starQuery: {
       magnitude: {$lte: 4.75}
     },
@@ -117,7 +120,8 @@ new Vue({
       return project(
         AVAILABLE_GEOMETRIES[this.selectedGeometry],
         this.starQuery,
-        this.asterismQuery
+        this.asterismQuery,
+        this.netOptions
       )
     }
   }
