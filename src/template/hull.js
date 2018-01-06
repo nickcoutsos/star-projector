@@ -1,6 +1,8 @@
 import hull from 'convexhull-js'
 import { Matrix4, Vector3 } from 'three'
 
+const X = new Vector3(1, 0, 0)
+
 const getUnfoldedEdges = polygons => [].concat(
   ...polygons.map(({ matrix, polygon }) => (
     polygon.edges.map(edge => edge.line
@@ -28,7 +30,14 @@ export const getOrientationMatrix = points => {
     .map(edge => new Vector3().subVectors(...edge))
     .reduce((a, b) => b.lengthSq() > a.lengthSq() ? b : a)
 
+  const angle = longestEdge.angleTo(X)
+  const cross = longestEdge.clone().cross(X)
+
   return new Matrix4().makeRotationZ(
-    longestEdge.angleTo(new Vector3(1, 0, 0))
-  )
+    // angleTo gives us the smallest angle, so we check the cross product
+    // to find out if we ought to rotate in the opposite direction
+    cross.z > 1e-6
+      ? angle
+      : -angle
+    )
 }
