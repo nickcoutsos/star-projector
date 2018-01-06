@@ -75,6 +75,16 @@ canvas.object-hover {
   padding: 0;
 }
 
+#menu fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+#menu fieldset div {
+  margin-bottom: 10px;
+}
+
 #preview {
   height: 100%;
   flex-grow: 1;

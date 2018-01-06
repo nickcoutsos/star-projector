@@ -24,10 +24,34 @@
         </select>
 
         <h2>Net</h2>
-        <label>
-          <input type="checkbox" v-model="netOptions.disconnectPolygons" />
-          Separate Polygons
-        </label>
+
+        <fieldset>
+          <div>
+            <input id="disconnect-polygons" type="checkbox" v-model="netOptions.disconnectPolygons" />
+            <label for="disconnect-polygons">Separate Polygons</label>
+          </div>
+
+          <div>
+            <label for="scale-dimension">Scale dimension</label>
+            <select id="scale-dimension" v-model="netOptions.scaleDimension">
+              <option value="edgeLength">Edge Length</option>
+              <option value="inscribedRadius">Inscribed Radius</option>
+              <option value="circumscribedRadius">Circumscribed Radius</option>
+              <option value="templateHeight">Template height</option>
+              <option value="templateWidth">Template width</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="size">Size (centimeters)</label>
+            <input id="size" type="number" v-model="netOptions.size" />
+          </div>
+
+          <div>
+            <label for="padding">Padding (centimeters)</label>
+            <input id="padding" type="number" v-model="netOptions.padding" />
+          </div>
+        </fieldset>
 
         <h2>Stars</h2>
         <p class="description">

@@ -3,21 +3,17 @@ import { Box2, CurvePath, Line3, Matrix4, Vector3 } from 'three'
 import { getUnfoldedHull, getOrientationMatrix } from './hull'
 import { getTabMaker } from './tabs'
 import { header as svgHeader, element } from './svg'
+import * as scaling from './scaling'
 import * as directives from './directives'
 
 const tabScale = 1 / 10
 
-const PHI = (1 + Math.sqrt(5)) / 2
-const dodecahedronInscribedRadiusRatio = (
-  Math.pow(PHI, 2) /
-  (2 * Math.sqrt(3 - PHI))
-)
 
 export function drawSVG(polygons, stars, asterisms, netOptions) {
   const connected = !netOptions.disconnectPolygons
 
   polygons.forEach(polygon => {
-    polygon.transform = polygon.matrix.clone()//.premultiply(viewboxTransform)
+    polygon.transform = polygon.matrix.clone()
     if (!connected && polygon.fold) {
       polygon.cuts.push(polygon.fold)
       polygon.fold = null
@@ -45,62 +41,48 @@ export function drawSVG(polygons, stars, asterisms, netOptions) {
   const asterismQuads = getAsterismQuads(polygons, tabs, asterisms)
 
   connected
-    ? render(polygons, tabs, starPaths, asterismQuads)
-    : polygons.forEach(polygon => render([polygon], tabs, starPaths, asterismQuads))
+    ? render(polygons, polygons, tabs, starPaths, asterismQuads, netOptions)
+    : polygons.forEach(polygon => render(polygons, [polygon], tabs, starPaths, asterismQuads, netOptions))
 }
 
-const render = (polygons, tabs, starPaths, asterismQuads) => {
-  const edgeHull = getUnfoldedHull(polygons)
+const render = (polygons, selectedPolygons, tabs, starPaths, asterismQuads, netOptions) => {
+  const edgeHull = getUnfoldedHull(selectedPolygons)
   const aaRotation = getOrientationMatrix(edgeHull)
   const boundingBox = new Box2().setFromPoints(
-    edgeHull.map(p => p.applyMatrix4(aaRotation))
+    edgeHull.map(p => p.clone().applyMatrix4(aaRotation))
   )
 
-  // TODO: refactor this section into a function that allows for scaling based
-  // on desired radius or edge length or maximum unfolded dimensions
   const offset = boundingBox.min.clone().negate()
-
-  // const scale = 100 / boundingBox.getSize().x
-  // const scale = 12.584086145276297
   const edgeLength = polygons[0].polygon.edges[0].line.distance()
   const tabHeight = edgeLength * tabScale
-  const padding = tabHeight * 1.25
 
+  // TODO: generate thsi from netOptions.padding?
+  const padding = tabHeight * 1.25
   const paddedBoundingBox = boundingBox.getSize().add(
     new Vector3(padding, padding, 0).multiplyScalar(2)
   )
 
-  const availableWidth = 71 - padding*2
-  const availableScale = availableWidth / paddedBoundingBox.x
-  // const availableEdgeLength = edgeLength * availableScale
-  // const availableHeight = availableScale * paddedBoundingBox.y
-  // const availableRadius = availableEdgeLength * dodecahedronInscribedRadiusRatio
-
-  // console.log({
-  //   availableWidth,
-  //   availableHeight,
-  //   availableScale,
-  //   availableEdgeLength,
-  //   availableRadius
-  // })
-
-  const viewBoundingBox = paddedBoundingBox.multiplyScalar(availableScale)
+  const scale = scaling[netOptions.scaleDimension](polygons, paddedBoundingBox, netOptions.size)
+  const viewBoundingBox = paddedBoundingBox.multiplyScalar(scale)
   const viewbox = [0, 0, viewBoundingBox.x, viewBoundingBox.y]
 
+  const scaleTransform = new Matrix4().makeScale(scale, scale, 1)
+  const translateTransform = new Matrix4().makeTranslation(offset.x + padding, offset.y + padding, 0)
+
   const viewboxTransform = new Matrix4()
-    .multiply(new Matrix4().makeScale(availableScale, availableScale, 1))
-    .multiply(new Matrix4().makeTranslation(offset.x + padding, offset.y + padding, 0))
+    .multiply(scaleTransform)
+    .multiply(translateTransform)
     .multiply(aaRotation)
 
-  polygons.forEach(({ transform }) => transform.premultiply(viewboxTransform))
+  selectedPolygons.forEach(({ transform }) => transform.premultiply(viewboxTransform))
 
-  const { cuts, folds } = polygons.reduce((results, { polygon, cuts, fold, transform }) => {
+  const { cuts, folds } = selectedPolygons.reduce((results, { polygon, cuts, fold, transform }) => {
     const polygonId = polygon.index
     const mapEdge = edge => edge.line.clone().applyMatrix4(transform).toPoints()
 
     if (fold) {
       const edge = mapEdge(fold)
-      const adjacentPoly = polygons[fold.poly.index]
+      const adjacentPoly = selectedPolygons[fold.poly.index]
 
       if (adjacentPoly) {
         results.folds.push(edge)
@@ -110,7 +92,7 @@ const render = (polygons, tabs, starPaths, asterismQuads) => {
     }
 
     polygon.edges.forEach(edge => {
-      if (!polygons[edge.shared.poly.index]) {
+      if (!selectedPolygons[edge.shared.poly.index]) {
         cuts.push(edge)
       }
     })
@@ -131,7 +113,7 @@ const render = (polygons, tabs, starPaths, asterismQuads) => {
   const asterismLinesByPolygon = groupBy(asterismQuads, 'polygonId')
   const tabsByPolygon = groupBy(tabs, 'polygonId')
 
-  polygons.forEach(({ polygon }) => {
+  selectedPolygons.forEach(({ polygon }) => {
     const paths = starPathsByPolygon[polygon.index] || []
     const lines = asterismLinesByPolygon[polygon.index] || []
     const tabs = tabsByPolygon[polygon.index] || []
@@ -149,8 +131,7 @@ const render = (polygons, tabs, starPaths, asterismQuads) => {
     id: 'output',
     preserveAspectRatio: 'xMinYMin',
     viewBox: viewbox.join(' '),
-    width: '100%',
-    // width: `${viewBoundingBox.x}cm`,
+    width: `${viewBoundingBox.x}cm`,
     height: `${viewBoundingBox.y}cm`
   }, [
     element('g', {id: 'calibration', ...strokeRed}, [element('rect', { x: 0, y: 0, width: 2.54, height: 2.54 })]),
@@ -160,7 +141,7 @@ const render = (polygons, tabs, starPaths, asterismQuads) => {
     element('g', {id: 'folds', ...strokeBlue}, folds.map(fold => (
       element('path', { d: directives.line(fold) })
     ))),
-    element('g', {id: 'stars', ...strokeRed}, polygons.map(({ polygon }) => (
+    element('g', {id: 'stars', ...strokeRed}, selectedPolygons.map(({ polygon }) => (
       element('g', {
         id: `polygon-${polygon.index}-stars`
       }, starPathsByPolygon[polygon.index].map(path => (
@@ -169,14 +150,14 @@ const render = (polygons, tabs, starPaths, asterismQuads) => {
         })
       ))
     )))),
-    element('g', {id: 'constellations', ...strokeRed}, polygons.map(({ polygon }) => (
+    element('g', {id: 'constellations', ...strokeRed}, selectedPolygons.map(({ polygon }) => (
       element('g', {
         id: `polygon-${polygon.index}-asterisms`
-      }, asterismLinesByPolygon[polygon.index].map(line => (
+      }, (asterismLinesByPolygon[polygon.index] || []).map(line => (
         element('path', { d: directives.line(line.toPoints()) })
       )))
     ))),
-    element('g', {id: 'tabs', ...strokeRed}, polygons.map(({ polygon }) => (
+    element('g', {id: 'tabs', ...strokeRed}, selectedPolygons.map(({ polygon }) => (
       element('g', {
         id: `polygon-${polygon.index}-tabs`
       }, (tabsByPolygon[polygon.index] || []).map(({ quad }) => (
@@ -191,7 +172,7 @@ const render = (polygons, tabs, starPaths, asterismQuads) => {
       'font-family': 'Garamond',
       'font-size': '1pt',
       'text-anchor': 'middle'
-    }, polygons.map(({ polygon, transform }) => {
+    }, selectedPolygons.map(({ polygon, transform }) => {
       const center = polygon.center.clone().applyMatrix4(transform)
       return element('text', {
         x: center.x,

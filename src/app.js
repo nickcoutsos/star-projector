@@ -12,7 +12,7 @@ const AVAILABLE_GEOMETRIES = {
   Tetrahedron: new three.TetrahedronGeometry(),
   Cube: new three.BoxGeometry(1, 1, 1),
   Octahedron: new three.OctahedronGeometry(),
-  Dodecaheron: new three.DodecahedronGeometry(),
+  Dodecahedron: new three.DodecahedronGeometry(),
   Icosahedron: new three.IcosahedronGeometry()
 };
 
@@ -21,14 +21,14 @@ new Vue({
   data: {
     selectedStars: [],
     selectedAsterisms: [],
-    selectedGeometry: 'Dodecaheron',
+    selectedGeometry: 'Dodecahedron',
     availableStars: [],
     availableAsterisms: [],
     availableGeometries: [
       'Tetrahedron',
       'Cube',
       'Octahedron',
-      'Dodecaheron',
+      'Dodecahedron',
       'Icosahedron'
     ],
     filters: {
@@ -37,7 +37,10 @@ new Vue({
     },
     connectedStars: [],
     netOptions: {
-      disconnectPolygons: false
+      disconnectPolygons: false,
+      scaleDimension: 'inscribedRadius',
+      size: 10,
+      padding: 2
     },
     starQuery: {
       magnitude: {$lte: 4.75}
