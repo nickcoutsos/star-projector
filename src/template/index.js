@@ -287,21 +287,26 @@ const getStarPaths = (polygons, tabs, stars) => (
 
         const clippedCurve = transformed.curves.reduce((clipped, curve) => {
           const anyPointIncluded = curve.getControlPoints().some(point => tab.poly.containsPoint(point))
+          const anyEndpointsIncluded = [curve.v0, curve.v3].some(point => tab.poly.containsPoint(point))
 
           if (!anyPointIncluded) {
-            // console.log('nevermind')
+            return clipped
+          }
+
+          const intersectedEdges = tab.overlapEdges
+            .map(edge => curve.intersectLine(edge))
+            .filter(intersections => intersections.length > 0)
+
+          if (intersectedEdges.length === 0 && anyEndpointsIncluded) {
+            // Some control points lie outside and some lie inside, but there
+            // are no intersections with any of the tab edges. This means the
+            // curve is fully within the tab and can be coppied as a whole.
+            clipped.push(curve.clone())
             return clipped
           }
 
           tab.overlapEdges.forEach(edge => {
             const intersections = curve.intersectLine(edge)
-
-            if (intersections.length === 0) {
-              // The curve doesn't intersect, but some points lie inside; that
-              // means they all do and we can copy it in full.
-              clipped.push(curve.clone())
-              return
-            }
 
             if (intersections.length === 1) {
               const [a, b] = curve.splitAt(intersections[0].t)
