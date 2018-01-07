@@ -56,7 +56,7 @@ const render = (polygons, selectedPolygons, tabs, starPaths, asterismQuads, netO
   const edgeLength = polygons[0].polygon.edges[0].line.distance()
   const tabHeight = edgeLength * tabScale
 
-  // TODO: generate thsi from netOptions.padding?
+  // TODO: generate this from netOptions.padding?
   const padding = tabHeight * 1.25
   const paddedBoundingBox = boundingBox.getSize().add(
     new Vector3(padding, padding, 0).multiplyScalar(2)
@@ -158,7 +158,7 @@ const render = (polygons, selectedPolygons, tabs, starPaths, asterismQuads, netO
     element('g', {id: 'stars', ...strokeRed}, selectedPolygons.map(({ polygon }) => (
       element('g', {
         id: `polygon-${polygon.index}-stars`
-      }, starPathsByPolygon[polygon.index].map(path => (
+      }, (starPathsByPolygon[polygon.index]||[]).map(path => (
         element('path', {
           d: directives.path(path)
         })
@@ -310,16 +310,27 @@ const getStarPaths = (polygons, tabs, stars) => (
 
             if (intersections.length === 1) {
               const [a, b] = curve.splitAt(intersections[0].t)
-              const aInside = a.getControlPoints().some(p => tab.poly.containsPoint(p, true))
+              // TODO: this check should probably be for the curve section with
+              // ALL control points contained by the tab
+              const aInside = a.getControlPoints().filter(p => tab.poly.containsPoint(p)).length
+              const bInside = b.getControlPoints().filter(p => tab.poly.containsPoint(p)).length
+              const kept = aInside > bInside ? a : b
 
-              const kept = aInside ? a : b
               clipped.push(kept.clone())
             }
 
             if (intersections.length > 1) {
-              // TODO: this needs to be accounted for, but so far it hasn't been
-              // an issue.
-              console.warn('multi-intersect', intersections)
+              const pieces = intersections.map((t, i, intersections) => {
+                const t0 = i === 0 ? 0 : intersections[i - 1]
+                const [,remaining] = curve.splitAt(t0)
+                const [segment,] = remaining.splitAt(t)
+                return segment
+              })
+
+              clipped.push(...pieces.filter(curve => (
+                curve.getControlPoints()
+                  .every(p => tab.poly.containsPoint(p))
+              )))
             }
           })
 
