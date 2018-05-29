@@ -2,6 +2,8 @@
 
 ![](finished.jpg)
 
+This readme needs work but it should at least be informative.
+
 ## About
 
 This application is a tool to generate a 3D preview and 2D laser-cutting
